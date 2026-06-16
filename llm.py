@@ -1,9 +1,9 @@
 from gemini_client import client
+from typing import Generator
 
 
-def generate_response(summary: str, history: str, message: str, context: list):
-
-    prompt = f"""
+def _build_prompt(summary: str, history: str, message: str, context: list) -> str:
+    return f"""
 You are a helpful AI assistant.
 
 Use the CONTEXT and CHAT HISTORY to answer.
@@ -33,16 +33,14 @@ Rules:
 - If not, rely on general knowledge
 - Be concise and accurate
 """
+
+
+def generate_response_stream(summary: str, history: str, message: str, context: list) -> Generator[str, None, None]:
+    prompt = _build_prompt(summary, history, message, context)
     response = client.models.generate_content_stream(
         model="gemini-2.5-flash",
         contents=prompt,
     )
-    
-    full_text = ""
-
     for chunk in response:
-        print(chunk.text, end="", flush=True)
         if chunk.text:
-            full_text += chunk.text
-
-    return full_text
+            yield chunk.text
