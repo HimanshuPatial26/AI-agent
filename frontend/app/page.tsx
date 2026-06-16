@@ -22,8 +22,12 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("chat_user_id");
-    if (stored) setUserId(stored);
+    let id = localStorage.getItem("chat_user_id");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("chat_user_id", id);
+    }
+    setUserId(id);
   }, []);
 
   useEffect(() => {
@@ -59,11 +63,6 @@ export default function Home() {
       }
 
       const data = await res.json();
-
-      if (!userId) {
-        setUserId(data.user_id);
-        localStorage.setItem("chat_user_id", data.user_id);
-      }
 
       setMessages((prev) => [
         ...prev,
