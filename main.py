@@ -1,17 +1,37 @@
-from fastapi import FastAPI,UploadFile, File
-from pydantic import BaseModel
+import io
+import uuid
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, field_validator
 from llm import generate_response
 from memory import get_history, save_message, save_summary
 from pdf import extract_text, chunk_text
-from rag import store_chunks,retrieve_chunks
-from memory import summarize_history, format_history,get_summary
-import uuid
+from rag import store_chunks, retrieve_chunks
+from memory import summarize_history, format_history, get_summary
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ChatRequest(BaseModel):
     user_id: str | None = None
     message: str
+
+    @field_validator("message")
+    @classmethod
+    def validate_message(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError("Message cannot be empty")
+        if len(v) > 2000:
+            raise ValueError("Message cannot exceed 2000 characters")
+        return v
 
 
 
@@ -59,7 +79,14 @@ def chat(req: ChatRequest):
 @app.post("/upload-pdf")
 def upload_pdf(file: UploadFile = File(...)):
 
-    text = extract_text(file.file)
+    if file.content_type != "application/pdf" and not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+    contents = file.file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size cannot exceed 10MB")
+
+    text = extract_text(io.BytesIO(contents))
     chunks = chunk_text(text)
 
     store_chunks(chunks, file.filename)
