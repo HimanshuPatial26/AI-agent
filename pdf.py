@@ -1,3 +1,4 @@
+import re
 from pypdf import PdfReader
 
 
@@ -10,5 +11,20 @@ def extract_text(file):
 
     return text
 
-def chunk_text(text, chunk_size=500):
-    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+def chunk_text(text, chunk_size=500, overlap=50):
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+
+    chunks = []
+    current = ""
+
+    for sentence in sentences:
+        if current and len(current) + 1 + len(sentence) > chunk_size:
+            chunks.append(current.strip())
+            current = current[-overlap:].lstrip() + " " + sentence
+        else:
+            current = (current + " " + sentence).strip() if current else sentence
+
+    if current.strip():
+        chunks.append(current.strip())
+
+    return chunks
