@@ -1,10 +1,5 @@
-from google import genai
 from google.genai import types
-from dotenv import load_dotenv
-import os
-load_dotenv()
-
-client = genai.Client(api_key=os.getenv("genai_api_key"))
+from gemini_client import client
 
 
 def get_embedding(text: str):
