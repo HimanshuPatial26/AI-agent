@@ -8,6 +8,7 @@ interface Message {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const MESSAGE_LIMIT = 10;
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -16,6 +17,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +30,9 @@ export default function Home() {
       localStorage.setItem("chat_user_id", id);
     }
     setUserId(id);
+
+    const count = parseInt(localStorage.getItem("chat_message_count") || "0", 10);
+    setMessageCount(count);
   }, []);
 
   useEffect(() => {
@@ -44,7 +49,11 @@ export default function Home() {
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || messageCount >= MESSAGE_LIMIT) return;
+
+    const newCount = messageCount + 1;
+    setMessageCount(newCount);
+    localStorage.setItem("chat_message_count", String(newCount));
 
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: text }]);
@@ -218,23 +227,41 @@ export default function Home() {
 
       {/* Input */}
       <div className="bg-white border-t px-4 py-4 shrink-0">
-        <div className="max-w-3xl mx-auto flex items-end gap-2">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Message AI Assistant… (Enter to send, Shift+Enter for new line)"
-            rows={1}
-            className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 overflow-y-auto"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            Send
-          </button>
+        <div className="max-w-3xl mx-auto">
+          {messageCount >= MESSAGE_LIMIT ? (
+            <div className="flex flex-col items-center gap-2 py-3 px-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+              <p className="text-sm font-medium text-amber-800">
+                You've reached the {MESSAGE_LIMIT}-message limit for this demo.
+              </p>
+              <p className="text-xs text-amber-600">
+                Contact us to get full access.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-end gap-2">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message AI Assistant… (Enter to send, Shift+Enter for new line)"
+                  rows={1}
+                  className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 overflow-y-auto"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={loading || !input.trim()}
+                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                >
+                  Send
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 text-right mt-1.5">
+                {MESSAGE_LIMIT - messageCount} message{MESSAGE_LIMIT - messageCount !== 1 ? "s" : ""} remaining
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
