@@ -15,6 +15,10 @@ class ChatRequest(BaseModel):
 
 
 
+@app.get("/")
+def home():
+    return {"message": "AI Agent is running 🚀"}
+
 @app.post("/chat")
 def chat(req: ChatRequest):
 
