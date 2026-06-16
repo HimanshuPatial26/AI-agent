@@ -78,36 +78,47 @@ export default function Home() {
       let buffer = "";
       let assistantAdded = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-            if (data.chunk) {
-              if (!assistantAdded) {
-                setMessages((prev) => [...prev, { role: "assistant", content: data.chunk }]);
-                assistantAdded = true;
-              } else {
-                setMessages((prev) => {
-                  const msgs = [...prev];
-                  const last = msgs[msgs.length - 1];
-                  msgs[msgs.length - 1] = { ...last, content: last.content + data.chunk };
-                  return msgs;
-                });
-              }
-            }
-          } catch {
-            // skip malformed line
-          }
+      const applyChunk = (chunk: string) => {
+        if (!assistantAdded) {
+          setMessages((prev) => [...prev, { role: "assistant", content: chunk }]);
+          assistantAdded = true;
+        } else {
+          setMessages((prev) => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            msgs[msgs.length - 1] = { ...last, content: last.content + chunk };
+            return msgs;
+          });
         }
+      };
+
+      const parseLine = (line: string) => {
+        if (!line.trim()) return;
+        try {
+          const data = JSON.parse(line);
+          if (data.chunk && typeof data.chunk === "string") applyChunk(data.chunk);
+        } catch (_err) {
+          // skip malformed line
+        }
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          lines.forEach(parseLine);
+        }
+      } catch (_err) {
+        // stream was cut short — use whatever arrived
+      } finally {
+        reader.releaseLock();
       }
+
+      // process any remaining buffered content (last line without trailing newline)
+      parseLine(buffer);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${msg}` }]);
