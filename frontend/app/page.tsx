@@ -71,18 +71,40 @@ export default function Home() {
         throw new Error(err.detail || "Request failed");
       }
 
-      const data = await res.json();
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantAdded = false;
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response },
-      ]);
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          const data = JSON.parse(part.slice(6));
+          if (data.chunk) {
+            if (!assistantAdded) {
+              setMessages((prev) => [...prev, { role: "assistant", content: data.chunk }]);
+              assistantAdded = true;
+            } else {
+              setMessages((prev) => {
+                const msgs = [...prev];
+                const last = msgs[msgs.length - 1];
+                msgs[msgs.length - 1] = { ...last, content: last.content + data.chunk };
+                return msgs;
+              });
+            }
+          }
+        }
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `Error: ${message}` },
-      ]);
+      const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${msg}` }]);
     } finally {
       setLoading(false);
     }
@@ -209,7 +231,7 @@ export default function Home() {
               </div>
             ))}
 
-            {loading && (
+            {loading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex justify-start items-end gap-2">
                 <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
                   AI

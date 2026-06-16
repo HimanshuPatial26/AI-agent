@@ -1,9 +1,11 @@
 import io
+import json
 import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
-from llm import generate_response
+from llm import generate_response_stream
 from memory import get_history, save_message, save_summary
 from pdf import extract_text, chunk_text
 from rag import store_chunks, retrieve_chunks
@@ -34,16 +36,13 @@ class ChatRequest(BaseModel):
         return v
 
 
-
 @app.get("/")
 def home():
     return {"message": "AI Agent is running 🚀"}
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-
     user_id = req.user_id or str(uuid.uuid4())
-
     message = req.message
 
     save_message(user_id, "user", message)
@@ -51,30 +50,27 @@ def chat(req: ChatRequest):
     history = get_history(user_id)
 
     if len(history) > 0 and len(history) % 10 == 0:
+        history_text = format_history(history)
+        new_summary = summarize_history(history_text)
+        save_summary(user_id, new_summary)
 
-      history_text = format_history(history)
-
-      new_summary = summarize_history(history_text)
-
-      save_summary(user_id, new_summary)
-
-    recent_history = format_history(
-         get_history(user_id, limit=10)
-)
-
+    recent_history = format_history(get_history(user_id, limit=10))
     summary = get_summary(user_id)
-
     contexts = retrieve_chunks(message)
 
+    def stream():
+        full_response = ""
+        try:
+            for chunk in generate_response_stream(summary, recent_history, message, contexts):
+                full_response += chunk
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        finally:
+            if full_response:
+                save_message(user_id, "assistant", full_response)
+        yield f"data: {json.dumps({'done': True})}\n\n"
 
-    response = generate_response(summary, recent_history, message, contexts)
+    return StreamingResponse(stream(), media_type="text/event-stream")
 
-    save_message(user_id, "assistant", response)
-
-    return {
-        "response": response,
-        "user_id": user_id   # send back to frontend
-    }
 
 @app.post("/upload-pdf")
 def upload_pdf(file: UploadFile = File(...)):
