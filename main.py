@@ -1,4 +1,5 @@
 from fastapi import FastAPI,UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from llm import generate_response
 from memory import get_history, save_message, save_summary
@@ -8,6 +9,14 @@ from memory import summarize_history, format_history,get_summary
 import uuid
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ChatRequest(BaseModel):
     user_id: str | None = None
