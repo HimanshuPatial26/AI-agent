@@ -30,7 +30,7 @@ def chat(req: ChatRequest):
 
     history = get_history(user_id)
 
-    if len(history) >= 10:
+    if len(history) > 0 and len(history) % 10 == 0:
 
       history_text = format_history(history)
 
