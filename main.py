@@ -64,12 +64,21 @@ def chat(req: ChatRequest):
             for chunk in generate_response_stream(summary, recent_history, message, contexts):
                 full_response += chunk
                 yield json.dumps({"chunk": chunk}) + "\n"
+        except Exception as e:
+            yield json.dumps({"error": str(e)}) + "\n"
         finally:
             if full_response:
                 save_message(user_id, "assistant", full_response)
         yield json.dumps({"done": True}) + "\n"
 
-    return StreamingResponse(stream(), media_type="application/x-ndjson")
+    return StreamingResponse(
+        stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+        }
+    )
 
 
 @app.post("/upload-pdf")

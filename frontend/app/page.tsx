@@ -97,6 +97,7 @@ export default function Home() {
         try {
           const data = JSON.parse(line);
           if (data.chunk && typeof data.chunk === "string") applyChunk(data.chunk);
+          else if (data.error && typeof data.error === "string") applyChunk(`Error: ${data.error}`);
         } catch (_err) {
           // skip malformed line
         }
