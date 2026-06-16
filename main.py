@@ -63,13 +63,13 @@ def chat(req: ChatRequest):
         try:
             for chunk in generate_response_stream(summary, recent_history, message, contexts):
                 full_response += chunk
-                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                yield json.dumps({"chunk": chunk}) + "\n"
         finally:
             if full_response:
                 save_message(user_id, "assistant", full_response)
-        yield f"data: {json.dumps({'done': True})}\n\n"
+        yield json.dumps({"done": True}) + "\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 @app.post("/upload-pdf")
