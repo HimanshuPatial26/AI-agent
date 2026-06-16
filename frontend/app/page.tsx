@@ -72,33 +72,39 @@ export default function Home() {
       }
 
       const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantAdded = false;
 
-      while (reader) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
-        for (const part of parts) {
-          if (!part.startsWith("data: ")) continue;
-          const data = JSON.parse(part.slice(6));
-          if (data.chunk) {
-            if (!assistantAdded) {
-              setMessages((prev) => [...prev, { role: "assistant", content: data.chunk }]);
-              assistantAdded = true;
-            } else {
-              setMessages((prev) => {
-                const msgs = [...prev];
-                const last = msgs[msgs.length - 1];
-                msgs[msgs.length - 1] = { ...last, content: last.content + data.chunk };
-                return msgs;
-              });
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.chunk) {
+              if (!assistantAdded) {
+                setMessages((prev) => [...prev, { role: "assistant", content: data.chunk }]);
+                assistantAdded = true;
+              } else {
+                setMessages((prev) => {
+                  const msgs = [...prev];
+                  const last = msgs[msgs.length - 1];
+                  msgs[msgs.length - 1] = { ...last, content: last.content + data.chunk };
+                  return msgs;
+                });
+              }
             }
+          } catch {
+            // skip malformed line
           }
         }
       }
