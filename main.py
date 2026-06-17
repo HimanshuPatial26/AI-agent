@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from llm import generate_response_stream
 from memory import get_history, save_message, save_summary
-from pdf import extract_text, chunk_text
+from file_parser import extract_text, chunk_text, SUPPORTED_EXTENSIONS
 from rag import store_chunks, retrieve_chunks
 from memory import summarize_history, format_history, get_summary
 
@@ -81,19 +81,27 @@ def chat(req: ChatRequest):
     )
 
 
-@app.post("/upload-pdf")
-def upload_pdf(file: UploadFile = File(...)):
-
-    if file.content_type != "application/pdf" and not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+@app.post("/upload-file")
+def upload_file(file: UploadFile = File(...)):
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in SUPPORTED_EXTENSIONS:
+        allowed = ", ".join(f".{e}" for e in sorted(SUPPORTED_EXTENSIONS))
+        raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {allowed}")
 
     contents = file.file.read()
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size cannot exceed 10MB")
 
-    text = extract_text(io.BytesIO(contents))
+    try:
+        text = extract_text(io.BytesIO(contents), filename)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Could not parse file: {e}")
+
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="No text could be extracted from this file")
+
     chunks = chunk_text(text)
+    store_chunks(chunks, filename)
 
-    store_chunks(chunks, file.filename)
-
-    return {"message": "PDF stored successfully in Pinecone"}
+    return {"message": f'"{filename}" uploaded and indexed successfully'}
