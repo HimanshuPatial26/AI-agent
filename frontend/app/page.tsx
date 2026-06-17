@@ -128,7 +128,7 @@ export default function Home() {
     }
   };
 
-  const uploadPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -139,7 +139,7 @@ export default function Home() {
     formData.append("file", file);
 
     try {
-      const res = await fetch(`${API_URL}/upload-pdf`, {
+      const res = await fetch(`${API_URL}/upload-file`, {
         method: "POST",
         body: formData,
       });
@@ -201,16 +201,16 @@ export default function Home() {
               </>
             ) : (
               <>
-                <UploadIcon /> Upload PDF
+                <UploadIcon /> Upload File
               </>
             )}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.txt,.md,.docx,.csv"
             className="hidden"
-            onChange={uploadPDF}
+            onChange={uploadFile}
           />
         </div>
       </header>
@@ -223,7 +223,7 @@ export default function Home() {
               AI
             </div>
             <p className="text-xl font-medium text-gray-600">How can I help you?</p>
-            <p className="text-sm">Ask me anything, or upload a PDF to chat with it.</p>
+            <p className="text-sm">Ask me anything, or upload a file (PDF, DOCX, TXT, CSV, MD) to chat with it.</p>
           </div>
         ) : (
           <div className="max-w-3xl mx-auto space-y-4">
