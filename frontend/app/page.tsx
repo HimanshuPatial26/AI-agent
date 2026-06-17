@@ -109,7 +109,7 @@ export default function Home() {
             applyChunk(data.chunk);
           } else if (data.error && typeof data.error === "string") {
             if (data.rate_limited) {
-              setRateLimitedModels((prev) => new Set([...prev, selectedModel]));
+              setRateLimitedModels((prev) => { const s = new Set(prev); s.add(selectedModel); return s; });
             }
             applyChunk(data.rate_limited ? `⚠️ ${data.error}` : `Error: ${data.error}`);
           }
