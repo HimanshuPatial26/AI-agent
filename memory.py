@@ -1,4 +1,4 @@
-from llm import client
+from gemini_client import client
 from supabase_client import supabase
 
 
