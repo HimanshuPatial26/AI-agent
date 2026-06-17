@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
-from llm import generate_response_stream
+from llm import generate_response_stream, RateLimitError, MODELS, DEFAULT_MODEL
 from memory import get_history, save_message, save_summary
 from file_parser import extract_text, chunk_text, SUPPORTED_EXTENSIONS
 from rag import store_chunks, retrieve_chunks
@@ -21,9 +21,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class ChatRequest(BaseModel):
     user_id: str | None = None
     message: str
+    model: str | None = None
 
     @field_validator("message")
     @classmethod
@@ -40,10 +42,20 @@ class ChatRequest(BaseModel):
 def home():
     return {"message": "AI Agent is running 🚀"}
 
+
+@app.get("/models")
+def list_models():
+    return {
+        "models": [{"id": k, **v} for k, v in MODELS.items()],
+        "default": DEFAULT_MODEL,
+    }
+
+
 @app.post("/chat")
 def chat(req: ChatRequest):
     user_id = req.user_id or str(uuid.uuid4())
     message = req.message
+    model = req.model if req.model in MODELS else DEFAULT_MODEL
 
     save_message(user_id, "user", message)
 
@@ -61,9 +73,11 @@ def chat(req: ChatRequest):
     def stream():
         full_response = ""
         try:
-            for chunk in generate_response_stream(summary, recent_history, message, contexts):
+            for chunk in generate_response_stream(summary, recent_history, message, contexts, model=model):
                 full_response += chunk
                 yield json.dumps({"chunk": chunk}) + "\n"
+        except RateLimitError as e:
+            yield json.dumps({"error": str(e), "rate_limited": True}) + "\n"
         except Exception as e:
             yield json.dumps({"error": str(e)}) + "\n"
         finally:
@@ -77,7 +91,7 @@ def chat(req: ChatRequest):
         headers={
             "X-Accel-Buffering": "no",
             "Cache-Control": "no-cache",
-        }
+        },
     )
 
 
