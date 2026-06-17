@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import MarkdownMessage from "./components/MarkdownMessage";
 
 /* ── Model registry ── */
 interface ModelInfo {
@@ -267,14 +268,18 @@ export default function Home() {
                 {msg.role === "assistant" && <AIAvatar />}
 
                 <div className="flex flex-col gap-2 max-w-[76%]">
-                  <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                  <div className={`px-4 py-3 rounded-2xl text-sm ${
                     msg.role === "user"
-                      ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-br-md shadow-lg shadow-violet-500/20"
+                      ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-br-md shadow-lg shadow-violet-500/20 leading-relaxed whitespace-pre-wrap break-words"
                       : "bg-white/[0.05] text-white/85 border border-white/[0.07] rounded-bl-md"
                   }`}>
-                    {msg.content}
-                    {isStreaming && i === messages.length - 1 && (
-                      <span className="inline-block w-[2px] h-[14px] bg-violet-400 ml-0.5 align-middle animate-cursor-blink" />
+                    {msg.role === "user" ? (
+                      msg.content
+                    ) : (
+                      <MarkdownMessage
+                        content={msg.content}
+                        streaming={isStreaming && i === messages.length - 1}
+                      />
                     )}
                   </div>
 
