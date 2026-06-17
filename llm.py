@@ -23,7 +23,14 @@ class RateLimitError(Exception):
     """Raised when a provider returns a rate-limit / quota-exhausted error."""
 
 
-def _build_prompt(summary: str, history: str, message: str, context: list) -> str:
+def _build_prompt(summary: str, history: str, message: str, context: list, web_context: str = "") -> str:
+    web_section = f"""
+---
+
+WEB SEARCH RESULTS (cite these as [1], [2], etc. when relevant):
+{web_context}
+""" if web_context.strip() else ""
+
     return f"""You are a helpful AI assistant.
 
 Use the CONTEXT and CHAT HISTORY to answer.
@@ -37,7 +44,7 @@ CHAT HISTORY:
 
 KNOWLEDGE CONTEXT (from documents):
 {context}
-
+{web_section}
 ---
 
 USER QUESTION:
@@ -49,8 +56,9 @@ Long term memory summary:
 {summary}
 
 Rules:
-- If context is relevant, use it
-- If not, rely on general knowledge
+- If document or web context is relevant, use it
+- Cite web results as [1], [2], etc. when you use them
+- If no context is relevant, rely on general knowledge
 - Be concise and accurate
 """
 
@@ -61,11 +69,12 @@ def generate_response_stream(
     message: str,
     context: list,
     model: str = DEFAULT_MODEL,
+    web_context: str = "",
 ) -> Generator[str, None, None]:
     if model not in MODELS:
         model = DEFAULT_MODEL
     provider = MODELS[model]["provider"]
-    prompt = _build_prompt(summary, history, message, context)
+    prompt = _build_prompt(summary, history, message, context, web_context)
     if provider == "google":
         yield from _stream_gemini(prompt, model)
     else:
