@@ -52,7 +52,7 @@ def list_models():
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+async def chat(req: ChatRequest):
     user_id = req.user_id or str(uuid.uuid4())
     message = req.message
     model = req.model if req.model in MODELS else DEFAULT_MODEL
@@ -70,7 +70,7 @@ def chat(req: ChatRequest):
     summary = get_summary(user_id)
     contexts = retrieve_chunks(message)
 
-    def stream():
+    async def stream():
         full_response = ""
         try:
             for chunk in generate_response_stream(summary, recent_history, message, contexts, model=model):
