@@ -30,7 +30,6 @@ export default function Home() {
       localStorage.setItem("chat_user_id", id);
     }
     setUserId(id);
-
     const count = parseInt(localStorage.getItem("chat_message_count") || "0", 10);
     setMessageCount(count);
   }, []);
@@ -39,7 +38,6 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Auto-resize textarea
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -113,12 +111,10 @@ export default function Home() {
           lines.forEach(parseLine);
         }
       } catch (_err) {
-        // stream was cut short — use whatever arrived
+        // stream cut short — use whatever arrived
       } finally {
         reader.releaseLock();
       }
-
-      // process any remaining buffered content (last line without trailing newline)
       parseLine(buffer);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
@@ -149,7 +145,7 @@ export default function Home() {
         throw new Error(err.detail || "Upload failed");
       }
 
-      setUploadStatus(`"${file.name}" uploaded successfully`);
+      setUploadStatus(`"${file.name}" uploaded`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed";
       setUploadStatus(`Error: ${message}`);
@@ -167,95 +163,108 @@ export default function Home() {
     }
   };
 
+  const remaining = MESSAGE_LIMIT - messageCount;
+  const isStreaming = loading && messages.length > 0 && messages[messages.length - 1].role === "assistant";
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b px-6 py-3 flex items-center justify-between shadow-sm shrink-0">
+    <div className="flex flex-col h-screen bg-[#080810] text-white overflow-hidden">
+
+      {/* Ambient background glow */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-violet-600/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-indigo-600/8 rounded-full blur-[100px]" />
+      </div>
+
+      {/* ── Header ── */}
+      <header className="relative z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm select-none">
-            AI
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold text-sm shadow-lg shadow-violet-500/30">
+              AI
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#080810]" />
           </div>
-          <h1 className="text-base font-semibold text-gray-800">AI Assistant</h1>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-white">AI Assistant</p>
+            <p className="text-[11px] text-white/35">Always online</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {uploadStatus && (
             <span
-              className={`text-xs px-3 py-1 rounded-full ${
+              key={uploadStatus}
+              className={`animate-fade-in text-xs px-3 py-1.5 rounded-full border font-medium ${
                 uploadStatus.startsWith("Error")
-                  ? "bg-red-100 text-red-600"
-                  : "bg-green-100 text-green-700"
+                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}
             >
               {uploadStatus}
             </span>
           )}
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 text-white/60 hover:text-white/90 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none"
           >
             {uploading ? (
               <>
-                <LoadingDots small /> Uploading…
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/80 animate-spin-slow" />
+                Uploading…
               </>
             ) : (
               <>
-                <UploadIcon /> Upload File
+                <UploadIcon />
+                Upload File
               </>
             )}
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt,.md,.docx,.csv"
-            className="hidden"
-            onChange={uploadFile}
-          />
+          <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden" onChange={uploadFile} />
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      {/* ── Messages ── */}
+      <div className="relative flex-1 overflow-y-auto px-4 py-6">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-2">
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 text-2xl font-bold mb-2">
-              AI
-            </div>
-            <p className="text-xl font-medium text-gray-600">How can I help you?</p>
-            <p className="text-sm">Ask me anything, or upload a file (PDF, DOCX, TXT, CSV, MD) to chat with it.</p>
-          </div>
+          <EmptyState onHintClick={setInput} />
         ) : (
-          <div className="max-w-3xl mx-auto space-y-4">
+          <div className="max-w-3xl mx-auto space-y-5 pb-2">
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex items-end gap-2.5 animate-message-in ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {msg.role === "assistant" && (
-                  <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2 mt-1 shrink-0">
-                    AI
-                  </div>
-                )}
+                {msg.role === "assistant" && <AIAvatar />}
+
                 <div
-                  className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                  className={`relative max-w-[76%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
                     msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-br-sm"
-                      : "bg-white text-gray-800 border shadow-sm rounded-bl-sm"
+                      ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-br-md shadow-lg shadow-violet-500/20"
+                      : "bg-white/[0.05] text-white/85 border border-white/[0.07] rounded-bl-md"
                   }`}
                 >
                   {msg.content}
+                  {isStreaming && i === messages.length - 1 && (
+                    <span className="inline-block w-[2px] h-[14px] bg-violet-400 ml-0.5 align-middle animate-cursor-blink" />
+                  )}
                 </div>
+
+                {msg.role === "user" && (
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-[10px] font-bold text-white/40 shrink-0">
+                    U
+                  </div>
+                )}
               </div>
             ))}
 
+            {/* Typing indicator — shows while waiting for first chunk */}
             {loading && messages[messages.length - 1]?.role === "user" && (
-              <div className="flex justify-start items-end gap-2">
-                <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  AI
-                </div>
-                <div className="bg-white border shadow-sm rounded-2xl rounded-bl-sm px-4 py-3">
-                  <LoadingDots />
+              <div className="flex items-end gap-2.5 animate-message-in">
+                <AIAvatar />
+                <div className="px-4 py-3.5 bg-white/[0.05] border border-white/[0.07] rounded-2xl rounded-bl-md">
+                  <TypingDots />
                 </div>
               </div>
             )}
@@ -265,40 +274,36 @@ export default function Home() {
         )}
       </div>
 
-      {/* Input */}
-      <div className="bg-white border-t px-4 py-4 shrink-0">
+      {/* ── Input ── */}
+      <div className="relative z-10 px-4 py-4 border-t border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl shrink-0">
         <div className="max-w-3xl mx-auto">
           {messageCount >= MESSAGE_LIMIT ? (
-            <div className="flex flex-col items-center gap-2 py-3 px-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
-              <p className="text-sm font-medium text-amber-800">
-                You've reached the {MESSAGE_LIMIT}-message limit for this demo.
-              </p>
-              <p className="text-xs text-amber-600">
-                Contact us to get full access.
-              </p>
+            <div className="flex flex-col items-center gap-1.5 py-4 px-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 text-center">
+              <p className="text-sm font-semibold text-amber-400">Demo limit reached</p>
+              <p className="text-xs text-amber-500/60">You've used all {MESSAGE_LIMIT} messages. Contact us for full access.</p>
             </div>
           ) : (
             <>
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-2.5">
                 <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Message AI Assistant… (Enter to send, Shift+Enter for new line)"
+                  placeholder="Message AI Assistant…"
                   rows={1}
-                  className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 overflow-y-auto"
+                  className="flex-1 resize-none rounded-2xl px-4 py-3 text-sm bg-white/[0.05] hover:bg-white/[0.07] focus:bg-white/[0.07] border border-white/[0.07] focus:border-violet-500/40 text-white/90 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/15 overflow-y-auto transition-all duration-200"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={loading || !input.trim()}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="w-11 h-11 flex items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 active:scale-90 shadow-lg shadow-violet-500/20 transition-all duration-150 disabled:opacity-25 disabled:pointer-events-none shrink-0"
                 >
-                  Send
+                  <SendIcon />
                 </button>
               </div>
-              <p className="text-xs text-gray-400 text-right mt-1.5">
-                {MESSAGE_LIMIT - messageCount} message{MESSAGE_LIMIT - messageCount !== 1 ? "s" : ""} remaining
+              <p className="text-[11px] text-white/20 text-right mt-2 select-none">
+                {remaining} message{remaining !== 1 ? "s" : ""} left · Enter to send · Shift+Enter for new line
               </p>
             </>
           )}
@@ -308,15 +313,54 @@ export default function Home() {
   );
 }
 
-function LoadingDots({ small }: { small?: boolean }) {
-  const size = small ? "w-1.5 h-1.5" : "w-2 h-2";
+/* ── Sub-components ── */
+
+function EmptyState({ onHintClick }: { onHintClick: (v: string) => void }) {
+  const hints = ["Summarize a document", "Explain a concept", "Analyze my data"];
   return (
-    <div className="flex gap-1 items-center">
-      {[0, 150, 300].map((delay) => (
+    <div className="flex flex-col items-center justify-center h-full gap-5 text-center select-none">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 opacity-25 blur-2xl scale-110 animate-pulse" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-xl shadow-violet-500/30">
+          AI
+        </div>
+      </div>
+      <div>
+        <p className="text-lg font-semibold text-white/90">How can I help you?</p>
+        <p className="text-sm text-white/35 mt-1">Ask anything, or upload a file to start chatting with it.</p>
+        <p className="text-xs text-white/20 mt-0.5">PDF · DOCX · TXT · CSV · MD</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2 mt-1">
+        {hints.map((h) => (
+          <button
+            key={h}
+            onClick={() => onHintClick(h)}
+            className="px-3.5 py-1.5 text-xs text-white/45 border border-white/[0.08] rounded-full hover:border-violet-500/40 hover:text-white/75 hover:bg-violet-500/5 active:scale-95 transition-all duration-150"
+          >
+            {h}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AIAvatar() {
+  return (
+    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md shadow-violet-500/25">
+      AI
+    </div>
+  );
+}
+
+function TypingDots() {
+  return (
+    <div className="flex gap-1.5 items-center h-4">
+      {[0, 160, 320].map((delay) => (
         <span
           key={delay}
-          className={`${size} bg-gray-400 rounded-full animate-bounce`}
-          style={{ animationDelay: `${delay}ms` }}
+          className="w-1.5 h-1.5 rounded-full bg-violet-400/60"
+          style={{ animation: `wave 1.3s ease-in-out ${delay}ms infinite` }}
         />
       ))}
     </div>
@@ -325,8 +369,16 @@ function LoadingDots({ small }: { small?: boolean }) {
 
 function UploadIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
   );
 }
