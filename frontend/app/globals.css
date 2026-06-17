@@ -51,3 +51,12 @@ html, body {
 .animate-spin-slow {
   animation: spin 0.8s linear infinite;
 }
+
+/* Blinking cursor appended after the last rendered markdown element */
+.markdown-streaming > *:last-child::after {
+  content: "▋";
+  display: inline;
+  animation: cursor-blink 0.85s ease-in-out infinite;
+  color: rgb(167 139 250);   /* violet-400 */
+  margin-left: 1px;
+}
