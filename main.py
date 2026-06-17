@@ -10,6 +10,7 @@ from memory import get_history, save_message, save_summary
 from file_parser import extract_text, chunk_text, SUPPORTED_EXTENSIONS
 from rag import store_chunks, retrieve_chunks
 from memory import summarize_history, format_history, get_summary
+from search import web_search
 
 app = FastAPI()
 
@@ -26,6 +27,7 @@ class ChatRequest(BaseModel):
     user_id: str | None = None
     message: str
     model: str | None = None
+    web_search: bool = False
 
     @field_validator("message")
     @classmethod
@@ -72,8 +74,23 @@ async def chat(req: ChatRequest):
 
     async def stream():
         full_response = ""
+        sources: list[dict] = []
+        web_context = ""
+
+        if req.web_search:
+            yield json.dumps({"searching": True}) + "\n"
+            sources = web_search(message)
+            if sources:
+                web_context = "\n\n".join(
+                    f"[{i + 1}] {r['title']}\nURL: {r['url']}\n{r['content']}"
+                    for i, r in enumerate(sources)
+                )
+
         try:
-            for chunk in generate_response_stream(summary, recent_history, message, contexts, model=model):
+            for chunk in generate_response_stream(
+                summary, recent_history, message, contexts,
+                model=model, web_context=web_context,
+            ):
                 full_response += chunk
                 yield json.dumps({"chunk": chunk}) + "\n"
         except RateLimitError as e:
@@ -83,6 +100,9 @@ async def chat(req: ChatRequest):
         finally:
             if full_response:
                 save_message(user_id, "assistant", full_response)
+
+        if sources:
+            yield json.dumps({"sources": sources}) + "\n"
         yield json.dumps({"done": True}) + "\n"
 
     return StreamingResponse(
