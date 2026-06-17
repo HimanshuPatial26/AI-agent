@@ -28,7 +28,13 @@ def _from_pdf(file) -> str:
 def _from_docx(file) -> str:
     from docx import Document
     doc = Document(file)
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    parts = [p.text for p in doc.paragraphs if p.text.strip()]
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if cell.text.strip():
+                    parts.append(cell.text.strip())
+    return "\n".join(parts)
 
 
 def _from_text(file) -> str:
