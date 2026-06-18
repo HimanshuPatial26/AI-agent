@@ -42,7 +42,8 @@ export default function MarkdownMessage({ content, streaming }: Props) {
           ),
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer"
-              className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
+              className="underline underline-offset-2 transition-colors"
+              style={{ color: "#5b9bff" }}>
               {children}
             </a>
           ),
@@ -60,7 +61,7 @@ export default function MarkdownMessage({ content, streaming }: Props) {
 
           /* ── Quote / rule ── */
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-violet-500/40 pl-3 my-2 opacity-70 italic">
+            <blockquote className="pl-3 my-2 opacity-70 italic" style={{ borderLeft: "2px solid rgba(91,155,255,0.4)" }}>
               {children}
             </blockquote>
           ),
@@ -115,7 +116,8 @@ export default function MarkdownMessage({ content, streaming }: Props) {
             /* inline code */
             return (
               <code
-                className="bg-white/[0.08] text-violet-300 rounded px-1.5 py-0.5 text-[11px] font-mono"
+                className="rounded px-1.5 py-0.5 text-[11px] font-mono"
+                style={{ background: "rgba(91,155,255,0.1)", color: "#7eb0ff" }}
                 {...props}
               >
                 {children}

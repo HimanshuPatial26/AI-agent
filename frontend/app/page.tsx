@@ -16,22 +16,13 @@ const MODELS: ModelInfo[] = [
   { id: "llama3-8b-8192",          label: "Llama 3 8B",       provider: "Groq"   },
 ];
 
-interface Source {
-  title:   string;
-  url:     string;
-  content: string;
-}
+interface Source  { title: string; url: string; content: string; }
+interface Message { role: "user" | "assistant"; content: string; sources?: Source[]; }
 
-interface Message {
-  role:     "user" | "assistant";
-  content:  string;
-  sources?: Source[];
-}
-
-const API_URL      = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL       = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const MESSAGE_LIMIT = 10;
 
-/* ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
 export default function Home() {
   const [messages,          setMessages]          = useState<Message[]>([]);
   const [input,             setInput]             = useState("");
@@ -65,6 +56,37 @@ export default function Home() {
     ta.style.height = Math.min(ta.scrollHeight, 128) + "px";
   }, [input]);
 
+  /* ── Shooting stars ── */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const container = document.getElementById("star-container");
+    if (!container) return;
+
+    const createStar = () => {
+      const star = document.createElement("div");
+      star.className = "shooting-star";
+      const top      = Math.random() * 80;
+      const left     = Math.random() * 80;
+      const duration = Math.random() * 2000 + 2000;
+      const delay    = Math.random() * 5000;
+      const angle    = Math.random() * 45 + 30;
+      star.style.top              = top + "%";
+      star.style.left             = left + "%";
+      star.style.animationDuration= duration + "ms";
+      star.style.animationDelay   = delay + "ms";
+      star.style.transform        = `rotate(${angle}deg)`;
+      container.appendChild(star);
+      setTimeout(() => {
+        star.remove();
+        if (!reduced) createStar();
+      }, duration + delay);
+    };
+
+    const count = reduced ? 2 : 6;
+    for (let i = 0; i < count; i++) setTimeout(() => createStar(), i * 1500);
+  }, []);
+
   /* ── Send ── */
   const sendMessage = async () => {
     const text = input.trim();
@@ -80,14 +102,9 @@ export default function Home() {
 
     try {
       const res = await fetch(`${API_URL}/chat`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id:    userId,
-          message:    text,
-          model:      selectedModel,
-          web_search: webSearchEnabled,
-        }),
+        body:    JSON.stringify({ user_id: userId, message: text, model: selectedModel, web_search: webSearchEnabled }),
       });
 
       if (!res.ok) {
@@ -110,10 +127,7 @@ export default function Home() {
         } else {
           setMessages((prev) => {
             const msgs = [...prev];
-            msgs[msgs.length - 1] = {
-              ...msgs[msgs.length - 1],
-              content: msgs[msgs.length - 1].content + chunk,
-            };
+            msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], content: msgs[msgs.length - 1].content + chunk };
             return msgs;
           });
         }
@@ -131,19 +145,11 @@ export default function Home() {
             setMessages((prev) => {
               const msgs = [...prev];
               const last = msgs[msgs.length - 1];
-              if (last?.role === "assistant") {
-                msgs[msgs.length - 1] = { ...last, sources: data.sources };
-              }
+              if (last?.role === "assistant") msgs[msgs.length - 1] = { ...last, sources: data.sources };
               return msgs;
             });
           } else if (data.error && typeof data.error === "string") {
-            if (data.rate_limited) {
-              setRateLimitedModels((prev) => {
-                const s = new Set(prev);
-                s.add(selectedModel);
-                return s;
-              });
-            }
+            if (data.rate_limited) setRateLimitedModels((prev) => { const s = new Set(prev); s.add(selectedModel); return s; });
             applyChunk(data.rate_limited ? `⚠️ ${data.error}` : `Error: ${data.error}`);
           }
         } catch (_) {}
@@ -202,208 +208,557 @@ export default function Home() {
   const isStreaming      = loading && messages.length > 0 && messages[messages.length - 1].role === "assistant";
   const currentModel     = MODELS.find((m) => m.id === selectedModel) ?? MODELS[0];
   const isCurrentLimited = rateLimitedModels.has(selectedModel);
+  const showWelcome      = messages.length === 0 && !loading;
 
   return (
-    <div className="flex flex-col h-screen bg-[#080810] text-white overflow-hidden">
-
-      {/* Ambient glows */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-violet-600/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-indigo-600/8 rounded-full blur-[100px]" />
-      </div>
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      style={{
+        background: "radial-gradient(ellipse 120% 85% at 50% 100%, #0d1628 0%, #060912 60%)",
+        color: "#e8ecf8",
+        fontFamily: "'Anybody', system-ui, sans-serif",
+      }}
+    >
+      {/* Shooting star background */}
+      <div id="star-container" className="shooting-star-container" />
 
       {/* ── Header ── */}
-      <header className="relative z-10 flex items-center justify-between gap-3 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl shrink-0">
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold text-sm shadow-lg shadow-violet-500/30">AI</div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#080810]" />
+      <header
+        className="relative z-20 flex-none border-b"
+        style={{
+          background:     "rgba(9,13,24,0.72)",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
+          borderColor:    "rgba(255,255,255,0.08)",
+        }}
+      >
+        <div className="flex items-center justify-between h-16 px-6" style={{ maxWidth: "100%" }}>
+          {/* Logo + name */}
+          <div className="flex items-center gap-3">
+            <AILogoMark />
+            <span
+              style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "#f2f4ff" }}
+            >
+              AI Assistant
+            </span>
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ background: "#3b82f6", animation: "lum-pulse 2.4s infinite" }}
+            />
           </div>
-          <div className="leading-tight hidden sm:block">
-            <p className="text-sm font-semibold text-white">AI Assistant</p>
-            <p className="text-[11px] text-white/35">Always online</p>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-2">
+            <ModelSelector
+              models={MODELS}
+              selected={selectedModel}
+              rateLimited={rateLimitedModels}
+              onSelect={setSelectedModel}
+            />
+
+            {uploadStatus && (
+              <span
+                key={uploadStatus}
+                className="animate-fade-in hidden sm:inline-flex text-xs px-3 py-1.5 rounded-full border font-medium shrink-0"
+                style={
+                  uploadStatus.startsWith("Error")
+                    ? { background: "rgba(248,113,113,0.1)", color: "#f87171", borderColor: "rgba(248,113,113,0.2)" }
+                    : { background: "rgba(52,211,153,0.1)", color: "#34d399", borderColor: "rgba(52,211,153,0.2)" }
+                }
+              >
+                {uploadStatus}
+              </span>
+            )}
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 text-xs font-medium rounded-xl transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none shrink-0"
+              style={{
+                padding:     "8px 14px",
+                border:      "1px solid rgba(255,255,255,0.08)",
+                background:  "rgba(255,255,255,0.04)",
+                color:       "rgba(232,236,248,0.6)",
+                fontFamily:  "'Geist', sans-serif",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.9)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.6)"; }}
+            >
+              {uploading
+                ? <><span className="w-3.5 h-3.5 rounded-full border-2 animate-spin-slow" style={{ borderColor: "rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.8)" }} />Uploading…</>
+                : <><UploadIcon />Upload File</>}
+            </button>
+            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden" onChange={uploadFile} />
+
+            <button
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+              style={{ background: "transparent", border: "none", color: "#6fa8ff", cursor: "pointer" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <circle cx="12" cy="5"  r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="12" cy="19" r="1.8" />
+              </svg>
+            </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 min-w-0">
-          <ModelSelector models={MODELS} selected={selectedModel} rateLimited={rateLimitedModels} onSelect={setSelectedModel} />
-
-          {uploadStatus && (
-            <span key={uploadStatus} className={`animate-fade-in hidden sm:inline-flex text-xs px-3 py-1.5 rounded-full border font-medium shrink-0 ${
-              uploadStatus.startsWith("Error")
-                ? "bg-red-500/10 text-red-400 border-red-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            }`}>{uploadStatus}</span>
-          )}
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 text-white/60 hover:text-white/90 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none shrink-0"
-          >
-            {uploading
-              ? <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/80 animate-spin-slow" />Uploading…</>
-              : <><UploadIcon />Upload File</>}
-          </button>
-          <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden" onChange={uploadFile} />
         </div>
       </header>
 
       {/* Rate-limit banner */}
       {isCurrentLimited && (
-        <div className="relative z-10 flex items-center justify-between gap-3 px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-400 text-xs animate-fade-in shrink-0">
-          <span>⚠️ <strong>{currentModel.label}</strong> is currently unavailable (rate limit or quota exhausted).</span>
-          <span className="text-amber-500/60 shrink-0">Select a different model →</span>
+        <div
+          className="relative z-10 flex items-center justify-between gap-3 px-6 py-2.5 text-xs animate-fade-in shrink-0"
+          style={{ background: "rgba(217,119,6,0.1)", borderBottom: "1px solid rgba(217,119,6,0.2)", color: "#fbbf24" }}
+        >
+          <span>⚠️ <strong>{currentModel.label}</strong> is currently unavailable (rate limit).</span>
+          <span style={{ color: "rgba(251,191,36,0.5)" }} className="shrink-0">Select a different model →</span>
         </div>
       )}
 
-      {/* ── Messages ── */}
-      <div className="relative flex-1 overflow-y-auto px-4 py-6">
-        {messages.length === 0 ? (
-          <EmptyState model={currentModel} webSearch={webSearchEnabled} onHintClick={setInput} />
-        ) : (
-          <div className="max-w-3xl mx-auto space-y-5 pb-2">
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex items-end gap-2.5 animate-message-in ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && <AIAvatar />}
+      {/* ── Messages scroll area ── */}
+      <main
+        className="relative z-10 flex-1 overflow-y-auto"
+        style={{ padding: showWelcome ? "32px 16px 180px" : "32px 16px 180px" }}
+      >
+        <div className="mx-auto flex flex-col" style={{ maxWidth: 800 }}>
 
-                <div className="flex flex-col gap-2 max-w-[76%]">
-                  <div className={`px-4 py-3 rounded-2xl text-sm ${
-                    msg.role === "user"
-                      ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-br-md shadow-lg shadow-violet-500/20 leading-relaxed whitespace-pre-wrap break-words"
-                      : "bg-white/[0.05] text-white/85 border border-white/[0.07] rounded-bl-md"
-                  }`}>
+          {/* Welcome state */}
+          {showWelcome && (
+            <div className="flex flex-col items-center text-center" style={{ paddingTop: 64 }}>
+              <AILogoMark size={56} />
+              <h1
+                style={{
+                  margin:           "24px 0 0",
+                  fontFamily:       "'Geist', sans-serif",
+                  fontSize:         34,
+                  fontWeight:       600,
+                  letterSpacing:    "-0.02em",
+                  lineHeight:       1.15,
+                  background:       "linear-gradient(95deg,#ffffff 25%,#5b9bff)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip:   "text",
+                  color:            "transparent",
+                }}
+              >
+                Hello! How can I help you today?
+              </h1>
+              <p style={{ margin: "14px 0 0", maxWidth: 420, fontSize: 16, lineHeight: 1.6, color: "#aab4c9" }}>
+                I&apos;m ready to assist you with writing, learning, analyzing, or anything else you might need.
+              </p>
+
+              {/* Prompt cards */}
+              <div
+                style={{
+                  marginTop:           40,
+                  width:               "100%",
+                  display:             "grid",
+                  gridTemplateColumns: "repeat(3,1fr)",
+                  gap:                 16,
+                }}
+                className="sm:grid-cols-3 grid-cols-1"
+              >
+                {STARTER_PROMPTS.map((p) => (
+                  <PromptCard key={p.title} {...p} onClick={() => { setInput(p.prompt); setTimeout(() => textareaRef.current?.focus(), 50); }} />
+                ))}
+              </div>
+
+              {/* Model / web-search hint */}
+              <p style={{ marginTop: 32, fontSize: 12, color: "rgba(232,236,248,0.35)", fontFamily: "'Geist',sans-serif" }}>
+                Chatting with <span style={{ color: "#7eb0ff" }}>{currentModel.label}</span>
+                {webSearchEnabled && <span style={{ color: "#fb923c", marginLeft: 8 }}>· web search on</span>}
+                &nbsp;· PDF · DOCX · TXT · CSV · MD
+              </p>
+            </div>
+          )}
+
+          {/* Conversation */}
+          <div className="flex flex-col" style={{ gap: 22 }}>
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className="animate-message-in"
+                style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", gap: 12, alignItems: "flex-start" }}
+              >
+                {msg.role === "assistant" && (
+                  <div
+                    style={{
+                      flex:         "none",
+                      width:        38,
+                      height:       38,
+                      borderRadius: 11,
+                      background:   "linear-gradient(160deg,#1b2742,#101a30)",
+                      border:       "1px solid rgba(96,165,250,0.28)",
+                      boxShadow:    "0 6px 18px rgba(0,0,0,0.4)",
+                      display:      "flex",
+                      alignItems:   "center",
+                      justifyContent: "center",
+                      marginTop:    2,
+                    }}
+                  >
+                    <AILogoMark size={22} />
+                  </div>
+                )}
+
+                <div style={{ maxWidth: msg.role === "user" ? "75%" : "78%" }}>
+                  <div
+                    style={
+                      msg.role === "user"
+                        ? {
+                            padding:      "14px 18px",
+                            borderRadius: "14px 14px 4px 14px",
+                            background:   "#1c2740",
+                            border:       "1px solid rgba(255,255,255,0.08)",
+                            boxShadow:    "0 2px 8px rgba(0,0,0,0.3)",
+                            fontSize:     16,
+                            lineHeight:   1.55,
+                            color:        "#eef1fb",
+                            whiteSpace:   "pre-wrap",
+                          }
+                        : {
+                            padding:      "20px 24px",
+                            borderRadius: "14px 14px 14px 4px",
+                            background:   "#101a30",
+                            border:       "1px solid rgba(96,165,250,0.2)",
+                            boxShadow:    "0 4px 18px rgba(0,0,0,0.35)",
+                          }
+                    }
+                  >
                     {msg.role === "user" ? (
                       msg.content
                     ) : (
-                      <MarkdownMessage
-                        content={msg.content}
-                        streaming={isStreaming && i === messages.length - 1}
-                      />
+                      <>
+                        <MarkdownMessage
+                          content={msg.content}
+                          streaming={isStreaming && i === messages.length - 1}
+                        />
+                        {/* Action row */}
+                        <div style={{ display: "flex", gap: 4, marginTop: 12 }}>
+                          <ActionBtn title="Copy" onClick={() => navigator.clipboard.writeText(msg.content)}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="12" height="12" rx="2.5" />
+                              <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+                            </svg>
+                          </ActionBtn>
+                        </div>
+                      </>
                     )}
                   </div>
 
-                  {/* Source chips */}
+                  {/* Sources */}
                   {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                    <div className="animate-fade-in">
-                      <p className="text-[10px] text-white/25 mb-1.5 uppercase tracking-widest font-semibold">Sources</p>
-                      <div className="flex flex-wrap gap-1.5">
+                    <div className="animate-fade-in" style={{ marginTop: 8 }}>
+                      <p style={{ fontSize: 10, color: "rgba(232,236,248,0.3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "'Geist',sans-serif" }}>
+                        Sources
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {msg.sources.map((s, si) => (
                           <a
                             key={si}
                             href={s.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-500/8 border border-orange-500/15 text-white/45 hover:text-white/80 hover:bg-orange-500/12 hover:border-orange-500/25 transition-all text-[10px] max-w-[200px]"
+                            style={{
+                              display:        "inline-flex",
+                              alignItems:     "center",
+                              gap:            6,
+                              padding:        "4px 10px",
+                              borderRadius:   8,
+                              background:     "rgba(91,155,255,0.07)",
+                              border:         "1px solid rgba(91,155,255,0.15)",
+                              color:          "rgba(232,236,248,0.5)",
+                              fontSize:       10,
+                              maxWidth:       200,
+                              textDecoration: "none",
+                              fontFamily:     "'Geist',sans-serif",
+                            }}
                           >
-                            <span className="text-orange-400/70 font-bold shrink-0">[{si + 1}]</span>
-                            <span className="truncate">{s.title || s.url}</span>
-                            <ExternalLinkIcon />
+                            <span style={{ color: "#6fa8ff", fontWeight: 700 }}>[{si + 1}]</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title || s.url}</span>
                           </a>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
-
-                {msg.role === "user" && (
-                  <div className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-[10px] font-bold text-white/40 shrink-0">U</div>
-                )}
               </div>
             ))}
 
-            {/* Searching / typing indicator */}
+            {/* Thinking / searching indicator */}
             {loading && messages[messages.length - 1]?.role === "user" && (
-              <div className="flex items-end gap-2.5 animate-message-in">
-                <AIAvatar />
+              <div className="animate-message-in" style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    flex:         "none",
+                    width:        38,
+                    height:       38,
+                    borderRadius: 11,
+                    background:   "linear-gradient(160deg,#1b2742,#101a30)",
+                    border:       "1px solid rgba(96,165,250,0.28)",
+                    display:      "flex",
+                    alignItems:   "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AILogoMark size={22} />
+                </div>
+
                 {isSearching ? (
-                  <div className="flex items-center gap-2.5 px-4 py-3 bg-white/[0.05] border border-white/[0.07] rounded-2xl rounded-bl-md">
+                  <div
+                    style={{
+                      display:      "flex",
+                      alignItems:   "center",
+                      gap:          10,
+                      padding:      "14px 18px",
+                      borderRadius: "14px 14px 14px 4px",
+                      background:   "#101a30",
+                      border:       "1px solid rgba(96,165,250,0.2)",
+                    }}
+                  >
                     <span className="relative flex shrink-0">
-                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-orange-400 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-400" />
+                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full opacity-75" style={{ background: "#fb923c" }} />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ background: "#fb923c" }} />
                     </span>
-                    <span className="text-sm text-white/50">Searching the web…</span>
+                    <span style={{ fontSize: 14, color: "rgba(232,236,248,0.5)" }}>Searching the web…</span>
                   </div>
                 ) : (
-                  <div className="px-4 py-3.5 bg-white/[0.05] border border-white/[0.07] rounded-2xl rounded-bl-md">
-                    <TypingDots />
-                  </div>
+                  <LavaLoader />
                 )}
               </div>
             )}
+
             <div ref={messagesEndRef} />
           </div>
-        )}
-      </div>
+        </div>
+      </main>
 
-      {/* ── Input ── */}
-      <div className="relative z-10 px-4 py-4 border-t border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl shrink-0">
-        <div className="max-w-3xl mx-auto">
+      {/* ── Floating input ── */}
+      <div
+        className="absolute bottom-0 left-0 w-full z-30"
+        style={{ padding: "64px 16px 22px", background: "linear-gradient(to top,#060912 38%,rgba(6,9,18,0.85) 70%,transparent)", pointerEvents: "none" }}
+      >
+        <div className="mx-auto" style={{ maxWidth: 800, pointerEvents: "auto" }}>
           {messageCount >= MESSAGE_LIMIT ? (
-            <div className="flex flex-col items-center gap-1.5 py-4 px-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 text-center">
-              <p className="text-sm font-semibold text-amber-400">Demo limit reached</p>
-              <p className="text-xs text-amber-500/60">You've used all {MESSAGE_LIMIT} messages. Contact us for full access.</p>
+            <div
+              style={{
+                padding:     "16px 20px",
+                borderRadius: 16,
+                border:      "1px solid rgba(217,119,6,0.2)",
+                background:  "rgba(217,119,6,0.05)",
+                textAlign:   "center",
+              }}
+            >
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#fbbf24", fontFamily: "'Geist',sans-serif", margin: 0 }}>Demo limit reached</p>
+              <p style={{ fontSize: 12, color: "rgba(251,191,36,0.55)", marginTop: 4, marginBottom: 0 }}>
+                You&apos;ve used all {MESSAGE_LIMIT} messages. Contact us for full access.
+              </p>
             </div>
           ) : (
             <>
-              <div className="flex items-end gap-2.5">
-                {/* Web search toggle */}
-                <button
-                  onClick={() => setWebSearchEnabled((v) => !v)}
-                  title={webSearchEnabled ? "Web search on — click to disable" : "Click to enable web search"}
-                  className={`w-11 h-11 flex items-center justify-center rounded-2xl border transition-all duration-200 shrink-0 ${
-                    webSearchEnabled
-                      ? "bg-orange-500/15 border-orange-500/30 text-orange-400 shadow-lg shadow-orange-500/10"
-                      : "bg-white/[0.04] border-white/[0.08] text-white/30 hover:bg-white/[0.07] hover:text-white/55"
-                  }`}
+              {/* Input pill with glow */}
+              <div style={{ position: "relative", borderRadius: 9999 }}>
+                <div className="lum-ringglow" aria-hidden />
+                <div className="lum-ring" aria-hidden />
+                <div
+                  style={{
+                    position:       "relative",
+                    zIndex:         1,
+                    display:        "flex",
+                    alignItems:     "flex-end",
+                    gap:            6,
+                    padding:        8,
+                    borderRadius:   9999,
+                    background:     "rgba(20,27,44,0.82)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border:         "1px solid rgba(255,255,255,0.06)",
+                    boxShadow:      "0 10px 34px rgba(0,0,0,0.5)",
+                  }}
                 >
-                  <GlobeIcon />
-                </button>
+                  {/* Attach / web-search toggle */}
+                  <button
+                    onClick={() => setWebSearchEnabled((v) => !v)}
+                    title={webSearchEnabled ? "Web search on — click to disable" : "Enable web search"}
+                    style={{
+                      width:        42,
+                      height:       42,
+                      flex:         "none",
+                      border:       "none",
+                      borderRadius: 9999,
+                      cursor:       "pointer",
+                      display:      "flex",
+                      alignItems:   "center",
+                      justifyContent: "center",
+                      transition:   "background .15s",
+                      background:   webSearchEnabled ? "rgba(251,146,60,0.15)" : "transparent",
+                      color:        webSearchEnabled ? "#fb923c" : "#aab4c9",
+                    }}
+                  >
+                    <GlobeIcon />
+                  </button>
 
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={webSearchEnabled ? `Ask anything — web search is on…` : `Message ${currentModel.label}…`}
-                  rows={1}
-                  className="flex-1 resize-none rounded-2xl px-4 py-3 text-sm bg-white/[0.05] hover:bg-white/[0.07] focus:bg-white/[0.07] border border-white/[0.07] focus:border-violet-500/40 text-white/90 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/15 overflow-y-auto transition-all duration-200"
-                />
+                  {/* Upload button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    style={{
+                      width:        42,
+                      height:       42,
+                      flex:         "none",
+                      border:       "none",
+                      background:   "transparent",
+                      borderRadius: 9999,
+                      cursor:       "pointer",
+                      display:      "flex",
+                      alignItems:   "center",
+                      justifyContent: "center",
+                      color:        "#aab4c9",
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  </button>
 
-                <button
-                  onClick={sendMessage}
-                  disabled={loading || !input.trim()}
-                  className="w-11 h-11 flex items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 active:scale-90 shadow-lg shadow-violet-500/20 transition-all duration-150 disabled:opacity-25 disabled:pointer-events-none shrink-0"
-                >
-                  <SendIcon />
-                </button>
+                  {/* Textarea */}
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={webSearchEnabled ? "Ask anything — web search is on…" : "Type your message…"}
+                    rows={1}
+                    style={{
+                      flex:       1,
+                      minWidth:   0,
+                      border:     "none",
+                      outline:    "none",
+                      background: "transparent",
+                      resize:     "none",
+                      minHeight:  44,
+                      maxHeight:  128,
+                      padding:    "11px 6px 11px",
+                      fontFamily: "'Anybody', sans-serif",
+                      fontSize:   16,
+                      color:      "#eef1fb",
+                      lineHeight: 1.4,
+                      overflow:   "auto",
+                    }}
+                    className="placeholder:text-[rgba(232,236,248,0.3)]"
+                  />
+
+                  {/* Send / Stop */}
+                  {loading ? (
+                    <button
+                      onClick={() => { setLoading(false); setIsSearching(false); }}
+                      style={{
+                        width:        42,
+                        height:       42,
+                        flex:         "none",
+                        border:       "none",
+                        borderRadius: 9999,
+                        cursor:       "pointer",
+                        display:      "flex",
+                        alignItems:   "center",
+                        justifyContent: "center",
+                        background:   "rgba(248,113,113,0.16)",
+                        color:        "#f87171",
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <rect x="6" y="6" width="12" height="12" rx="2.5" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={sendMessage}
+                      disabled={!input.trim()}
+                      style={{
+                        width:        42,
+                        height:       42,
+                        flex:         "none",
+                        border:       "none",
+                        borderRadius: 9999,
+                        cursor:       input.trim() ? "pointer" : "not-allowed",
+                        display:      "flex",
+                        alignItems:   "center",
+                        justifyContent: "center",
+                        background:   "#3b82f6",
+                        color:        "#ffffff",
+                        boxShadow:    "0 2px 12px rgba(59,130,246,0.5)",
+                        opacity:      input.trim() ? 1 : 0.4,
+                        transition:   "filter .2s ease, opacity .2s ease",
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="20" x2="12" y2="6" />
+                        <polyline points="6 12 12 6 18 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Toolbar hint row */}
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-1.5">
+              {/* Hint row */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {webSearchEnabled && (
-                    <span className="animate-fade-in inline-flex items-center gap-1 text-[10px] text-orange-400/70 bg-orange-500/8 border border-orange-500/15 px-2 py-0.5 rounded-full">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                    <span
+                      className="animate-fade-in"
+                      style={{
+                        display:      "inline-flex",
+                        alignItems:   "center",
+                        gap:          4,
+                        fontSize:     10,
+                        color:        "rgba(251,146,60,0.75)",
+                        background:   "rgba(251,146,60,0.08)",
+                        border:       "1px solid rgba(251,146,60,0.15)",
+                        padding:      "2px 8px",
+                        borderRadius: 9999,
+                        fontFamily:   "'Geist',sans-serif",
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#fb923c" }} />
                       Web search on
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-white/20 select-none">
+                <p
+                  style={{
+                    fontSize:   11,
+                    color:      "rgba(232,236,248,0.25)",
+                    fontFamily: "'Geist',sans-serif",
+                    margin:     0,
+                  }}
+                >
                   {remaining} message{remaining !== 1 ? "s" : ""} left · Enter to send
                 </p>
               </div>
             </>
           )}
+
+          <p
+            style={{
+              margin:     "6px 0 0",
+              textAlign:  "center",
+              fontFamily: "'Geist',sans-serif",
+              fontSize:   11,
+              letterSpacing: "0.04em",
+              color:      "rgba(232,236,248,0.3)",
+            }}
+          >
+            AI Assistant can make mistakes. Consider verifying important information.
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════ */
-/*  Model Selector                                */
-/* ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
+/*  Model Selector                                            */
+/* ══════════════════════════════════════════════════════════ */
 function ModelSelector({ models, selected, rateLimited, onSelect }: {
   models:      ModelInfo[];
   selected:    string;
@@ -422,25 +777,64 @@ function ModelSelector({ models, selected, rateLimited, onSelect }: {
   }, []);
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} style={{ position: "relative" }} className="shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 px-3 py-2 text-xs rounded-xl border transition-all duration-150 ${
-          limited
-            ? "border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/12"
-            : "border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] text-white/65 hover:text-white/90"
-        }`}
+        style={{
+          display:     "flex",
+          alignItems:  "center",
+          gap:         8,
+          padding:     "7px 12px",
+          fontSize:    12,
+          borderRadius: 12,
+          border:      limited ? "1px solid rgba(217,119,6,0.3)" : "1px solid rgba(255,255,255,0.08)",
+          background:  limited ? "rgba(217,119,6,0.08)" : "rgba(255,255,255,0.04)",
+          color:       limited ? "#fbbf24" : "rgba(232,236,248,0.65)",
+          cursor:      "pointer",
+          fontFamily:  "'Geist',sans-serif",
+          fontWeight:  500,
+          transition:  "background .15s",
+        }}
       >
         <ProviderDot provider={current.provider} />
-        <span className="font-medium max-w-[110px] truncate">{current.label}</span>
-        {limited && <span className="text-amber-400 shrink-0">⚠</span>}
-        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <span style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current.label}</span>
+        {limited && <span style={{ color: "#fbbf24" }}>⚠</span>}
+        <ChevronDown open={open} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-white/[0.08] bg-[#111118]/95 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden z-50 animate-fade-in">
-          <p className="px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-widest text-white/25 font-semibold">Select model</p>
-          <div className="p-1.5 space-y-0.5">
+        <div
+          className="animate-fade-in"
+          style={{
+            position:       "absolute",
+            right:          0,
+            top:            "calc(100% + 8px)",
+            width:          240,
+            borderRadius:   16,
+            border:         "1px solid rgba(255,255,255,0.08)",
+            background:     "rgba(9,14,26,0.96)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            boxShadow:      "0 16px 40px rgba(0,0,0,0.6)",
+            overflow:       "hidden",
+            zIndex:         50,
+          }}
+        >
+          <p
+            style={{
+              padding:       "12px 14px 6px",
+              fontSize:      10,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color:         "rgba(232,236,248,0.25)",
+              fontFamily:    "'Geist',sans-serif",
+              fontWeight:    600,
+              margin:        0,
+            }}
+          >
+            Select model
+          </p>
+          <div style={{ padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
             {models.map((m) => {
               const isLimited = rateLimited.has(m.id);
               const isActive  = m.id === selected;
@@ -449,26 +843,46 @@ function ModelSelector({ models, selected, rateLimited, onSelect }: {
                   key={m.id}
                   onClick={() => { if (!isLimited) { onSelect(m.id); setOpen(false); } }}
                   disabled={isLimited}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-100 ${
-                    isActive && !isLimited ? "bg-violet-500/15 text-white"
-                    : isLimited           ? "opacity-45 cursor-not-allowed text-white/50"
-                    :                       "hover:bg-white/[0.05] text-white/65 hover:text-white"
-                  }`}
+                  style={{
+                    width:        "100%",
+                    display:      "flex",
+                    alignItems:   "center",
+                    gap:          12,
+                    padding:      "10px 10px",
+                    borderRadius: 10,
+                    textAlign:    "left",
+                    border:       "none",
+                    cursor:       isLimited ? "not-allowed" : "pointer",
+                    background:   isActive && !isLimited ? "rgba(59,130,246,0.15)" : "transparent",
+                    color:        isLimited ? "rgba(232,236,248,0.4)" : isActive ? "#eef1fb" : "rgba(232,236,248,0.65)",
+                    opacity:      isLimited ? 0.5 : 1,
+                    transition:   "background .1s",
+                    fontFamily:   "'Geist',sans-serif",
+                  }}
                 >
                   <ProviderDot provider={m.provider} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{m.label}</p>
-                    <p className="text-[10px] text-white/30">{m.provider}</p>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{m.label}</p>
+                    <p style={{ fontSize: 10, color: "rgba(232,236,248,0.3)", margin: 0 }}>{m.provider}</p>
                   </div>
-                  {isLimited  ? <span className="text-[10px] text-amber-400/80 font-semibold shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Unavailable</span>
-                  : isActive  ? <CheckMark />
-                  : null}
+                  {isLimited
+                    ? <span style={{ fontSize: 10, color: "rgba(251,191,36,0.8)", background: "rgba(217,119,6,0.1)", padding: "2px 6px", borderRadius: 9999 }}>Unavailable</span>
+                    : isActive
+                    ? <svg className="w-3.5 h-3.5" style={{ color: "#5b9bff", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    : null}
                 </button>
               );
             })}
           </div>
-          <div className="px-3.5 py-2.5 border-t border-white/[0.05]">
-            <p className="text-[10px] text-white/20">Models marked Unavailable hit their rate limit.</p>
+          <div
+            style={{
+              padding:      "8px 14px 10px",
+              borderTop:    "1px solid rgba(255,255,255,0.05)",
+            }}
+          >
+            <p style={{ fontSize: 10, color: "rgba(232,236,248,0.2)", margin: 0, fontFamily: "'Geist',sans-serif" }}>
+              Models marked Unavailable hit their rate limit.
+            </p>
           </div>
         </div>
       )}
@@ -476,71 +890,175 @@ function ModelSelector({ models, selected, rateLimited, onSelect }: {
   );
 }
 
-/* ══════════════════════════════════════════════ */
-/*  Sub-components                                */
-/* ══════════════════════════════════════════════ */
-function EmptyState({ model, webSearch, onHintClick }: { model: ModelInfo; webSearch: boolean; onHintClick: (v: string) => void }) {
-  const hints = ["Latest AI news", "Explain quantum computing", "Summarize a document"];
+/* ══════════════════════════════════════════════════════════ */
+/*  Starter Prompts                                           */
+/* ══════════════════════════════════════════════════════════ */
+const STARTER_PROMPTS = [
+  {
+    icon:     "mail",
+    title:    "Draft an email",
+    subtitle: "Requesting a project deadline extension.",
+    prompt:   "Draft an email requesting a project deadline extension.",
+  },
+  {
+    icon:     "science",
+    title:    "Explain physics",
+    subtitle: "Quantum mechanics for a 5-year-old.",
+    prompt:   "Explain quantum mechanics physics to a 5-year-old.",
+  },
+  {
+    icon:     "flight",
+    title:    "Write an itinerary",
+    subtitle: "3-day trip to Kyoto, focusing on food.",
+    prompt:   "Write a 3-day Kyoto itinerary focused on food.",
+  },
+];
+
+function PromptCard({ icon, title, subtitle, onClick }: { icon: string; title: string; subtitle: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 text-center select-none">
-      <div className="relative">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 opacity-25 blur-2xl scale-110 animate-pulse" />
-        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-xl shadow-violet-500/30">AI</div>
-      </div>
-      <div>
-        <p className="text-lg font-semibold text-white/90">How can I help you?</p>
-        <p className="text-sm text-white/35 mt-1">
-          Chatting with <span className="text-white/55 font-medium">{model.label}</span>
-          {webSearch && <span className="ml-1.5 text-orange-400/80 text-xs">· web search on</span>}
-        </p>
-        <p className="text-xs text-white/20 mt-0.5">PDF · DOCX · TXT · CSV · MD supported</p>
-      </div>
-      <div className="flex flex-wrap justify-center gap-2 mt-1">
-        {hints.map((h) => (
-          <button key={h} onClick={() => onHintClick(h)}
-            className="px-3.5 py-1.5 text-xs text-white/45 border border-white/[0.08] rounded-full hover:border-violet-500/40 hover:text-white/75 hover:bg-violet-500/5 active:scale-95 transition-all duration-150">
-            {h}
-          </button>
-        ))}
-      </div>
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        textAlign:      "left",
+        cursor:         "pointer",
+        padding:        22,
+        borderRadius:   14,
+        background:     hovered ? "rgba(59,130,246,0.08)" : "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        border:         hovered ? "1px solid rgba(96,165,250,0.4)" : "1px solid rgba(255,255,255,0.09)",
+        boxShadow:      hovered ? "0 12px 28px rgba(0,0,0,0.45)" : "0 4px 18px rgba(0,0,0,0.3)",
+        transform:      hovered ? "translateY(-3px)" : "translateY(0)",
+        transition:     "transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease",
+        display:        "flex",
+        flexDirection:  "column",
+        gap:            10,
+      }}
+    >
+      <span style={{ color: "#5b9bff" }}>
+        <PromptIcon name={icon} />
+      </span>
+      <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 15, fontWeight: 600, color: "#eef1fb" }}>{title}</span>
+      <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 12, lineHeight: 1.45, color: "#9aa4ba" }}>{subtitle}</span>
+    </button>
+  );
+}
+
+function PromptIcon({ name }: { name: string }) {
+  const props = { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (name === "mail")    return <svg {...props}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>;
+  if (name === "science") return <svg {...props}><path d="M9 3h6M10 3v6.5l-4.8 8.3A2 2 0 0 0 6.9 21h10.2a2 2 0 0 0 1.7-3.2L14 9.5V3" /><line x1="8" y1="14" x2="16" y2="14" /></svg>;
+  if (name === "flight")  return <svg {...props}><path d="M21 15.5v-1.6l-7.5-4.7V4.2a1.5 1.5 0 0 0-3 0v5L3 13.9v1.6l7.5-2.3v4.6l-2 1.4v1.3l3.5-1 3.5 1v-1.3l-2-1.4v-4.6z" /></svg>;
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  Lava Loader (thinking state)                              */
+/* ══════════════════════════════════════════════════════════ */
+function LavaLoader() {
+  return (
+    <div
+      className="lum-loader"
+      role="status"
+      aria-label="Thinking"
+    >
+      <div className="lum-box" />
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <mask id="lum-clip">
+          <polygon points="50,14 76,54 34,60" />
+          <polygon points="30,34 70,30 55,66" />
+          <polygon points="36,30 66,46 44,68" />
+          <polygon points="28,48 60,32 58,66" />
+          <polygon points="40,28 68,42 38,62" />
+          <polygon points="42,30 70,50 45,64" />
+          <polygon points="38,40 66,38 52,66" />
+        </mask>
+      </svg>
     </div>
   );
 }
 
-function AIAvatar() {
+/* ══════════════════════════════════════════════════════════ */
+/*  Small reusable components                                 */
+/* ══════════════════════════════════════════════════════════ */
+function AILogoMark({ size = 34 }: { size?: number }) {
   return (
-    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md shadow-violet-500/25">
-      AI
+    <div
+      style={{
+        width:          size,
+        height:         size,
+        borderRadius:   size * 0.3,
+        background:     "linear-gradient(135deg, #1e3a6e 0%, #0d1f42 50%, #3b82f6 100%)",
+        border:         "1px solid rgba(96,165,250,0.35)",
+        boxShadow:      "0 4px 14px rgba(59,130,246,0.25)",
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        flexShrink:     0,
+      }}
+    >
+      <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55} fill="none" stroke="#7eb0ff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z" />
+        <circle cx="9"  cy="10" r="1" fill="#7eb0ff" stroke="none" />
+        <circle cx="15" cy="10" r="1" fill="#7eb0ff" stroke="none" />
+      </svg>
     </div>
   );
 }
 
-function TypingDots() {
+function ActionBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  const [hov, setHov] = useState(false);
   return (
-    <div className="flex gap-1.5 items-center h-4">
-      {[0, 160, 320].map((delay) => (
-        <span key={delay} className="w-1.5 h-1.5 rounded-full bg-violet-400/60"
-          style={{ animation: `wave 1.3s ease-in-out ${delay}ms infinite` }} />
-      ))}
-    </div>
+    <button
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width:          30,
+        height:         30,
+        border:         "none",
+        background:     hov ? "rgba(255,255,255,0.08)" : "transparent",
+        borderRadius:   8,
+        cursor:         "pointer",
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        color:          hov ? "#7eb0ff" : "rgba(232,236,248,0.4)",
+        transition:     "background .15s, color .15s",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
 function ProviderDot({ provider }: { provider: ModelInfo["provider"] }) {
-  return <span className={`w-2 h-2 rounded-full shrink-0 ${provider === "Google" ? "bg-violet-400" : "bg-orange-400"}`} />;
-}
-
-function CheckMark() {
   return (
-    <svg className="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-    </svg>
+    <span
+      style={{
+        width:        8,
+        height:       8,
+        borderRadius: "50%",
+        flexShrink:   0,
+        background:   provider === "Google" ? "#5b9bff" : "#fb923c",
+        display:      "inline-block",
+      }}
+    />
   );
 }
 
-function ChevronDown({ className }: { className?: string }) {
+function ChevronDown({ open }: { open: boolean }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg
+      style={{ width: 12, height: 12, flexShrink: 0, transition: "transform .2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
     </svg>
   );
@@ -548,34 +1066,17 @@ function ChevronDown({ className }: { className?: string }) {
 
 function GlobeIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
         d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c-2.5 0-4-4-4-9s1.5-9 4-9m0 18c2.5 0 4-4 4-9s-1.5-9-4-9M3.05 9h17.9M3.05 15h17.9" />
     </svg>
   );
 }
 
-function ExternalLinkIcon() {
-  return (
-    <svg className="w-2.5 h-2.5 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-    </svg>
-  );
-}
-
 function UploadIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
   );
 }
