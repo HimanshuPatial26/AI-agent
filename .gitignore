@@ -5,3 +5,5 @@ venv/
 .vscode/
 .idea/
 *.log
+.claude/worktrees/
+frontend/tsconfig.tsbuildinfo
