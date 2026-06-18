@@ -27,7 +27,7 @@ def _build_prompt(summary: str, history: str, message: str, context: list, web_c
     web_section = f"""
 ---
 
-WEB SEARCH RESULTS (cite these as [1], [2], etc. when relevant):
+WEB SEARCH RESULTS:
 {web_context}
 """ if web_context.strip() else ""
 
@@ -44,8 +44,7 @@ CHAT HISTORY:
 
 KNOWLEDGE CONTEXT (from documents):
 {context}
-{web_section}
----
+{web_section}---
 
 USER QUESTION:
 {message}
@@ -57,7 +56,7 @@ Long term memory summary:
 
 Rules:
 - If document or web context is relevant, use it
-- Cite web results as [1], [2], etc. when you use them
+- Do NOT include citation markers like [1], [2], [3] anywhere in your response
 - If no context is relevant, rely on general knowledge
 - Be concise and accurate
 """
