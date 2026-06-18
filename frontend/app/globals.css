@@ -104,41 +104,24 @@ html, body { height: 100%; }
   100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
 }
 
-/* ── Shooting stars ── */
-.shooting-star-container {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.shooting-star {
+/* ── Shooting star accent (design spec) ── */
+.lum-star {
   position: absolute;
-  left: 50%; top: 50%;
+  width: 90px;
   height: 2px;
-  background: linear-gradient(-45deg, rgba(91,155,255,0.55), rgba(91,155,255,0));
   border-radius: 9999px;
-  filter: drop-shadow(0 0 6px rgba(59,130,246,0.35));
-  animation: lum-star-tail 3000ms ease-in-out infinite, lum-star-shoot 3000ms ease-in-out infinite;
+  background: linear-gradient(-45deg, rgba(96,165,250,0.6), rgba(96,165,250,0));
+  filter: drop-shadow(0 0 6px rgba(59,130,246,0.4));
+  transform-origin: left center;
+  animation: lum-shoot 6s ease-in-out infinite;
 }
-.shooting-star::before,
-.shooting-star::after {
-  content: '';
-  position: absolute;
-  top: calc(50% - 1px);
-  right: 0;
-  height: 2px;
-  background: linear-gradient(-45deg, rgba(91,155,255,0), rgba(91,155,255,0.4), rgba(91,155,255,0));
-  border-radius: 100%;
-  animation: lum-star-shine 3000ms ease-in-out infinite;
+@keyframes lum-shoot {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  8%   { opacity: .6; }
+  70%  { opacity: .4; }
+  100% { opacity: 0; transform: translate(240px, 240px); }
 }
-.shooting-star::before { transform: translateX(50%) rotateZ(45deg); }
-.shooting-star::after  { transform: translateX(50%) rotateZ(-45deg); }
-
-@keyframes lum-star-tail  { 0% { width: 0; } 30% { width: 100px; } 100% { width: 0; } }
-@keyframes lum-star-shine { 0% { width: 0; } 50% { width: 30px; } 100% { width: 0; } }
-@keyframes lum-star-shoot { 0% { transform: translateX(0); } 100% { transform: translateX(300px); } }
-@media (prefers-reduced-motion: reduce) { .shooting-star, .shooting-star::before, .shooting-star::after { animation-duration: 10000ms; opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .lum-star { display: none; } }
 
 /* ── Message stream cursor ── */
 .markdown-streaming > *:last-child::after {
