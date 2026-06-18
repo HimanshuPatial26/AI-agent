@@ -213,7 +213,7 @@ export default function Home() {
 
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden"
+      className="flex flex-col h-dvh overflow-hidden"
       style={{
         background: "radial-gradient(ellipse 120% 85% at 50% 100%, #0d1628 0%, #060912 60%)",
         color: "#e8ecf8",
@@ -255,7 +255,7 @@ export default function Home() {
           borderColor:    "rgba(255,255,255,0.08)",
         }}
       >
-        <div className="flex items-center justify-between h-16 px-6" style={{ maxWidth: "100%" }}>
+        <div className="flex items-center justify-between header-inner" style={{ maxWidth: "100%" }}>
           {/* Logo + name */}
           <div className="flex items-center gap-3">
             <span style={{ flex: "none", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -311,7 +311,7 @@ export default function Home() {
             >
               {uploading
                 ? <><span className="w-3.5 h-3.5 rounded-full border-2 animate-spin-slow" style={{ borderColor: "rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.8)" }} />Uploading…</>
-                : <><UploadIcon />Upload File</>}
+                : <><UploadIcon /><span className="upload-label">Upload File</span></>}
             </button>
             <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden" onChange={uploadFile} />
 
@@ -345,21 +345,21 @@ export default function Home() {
       {/* ── Messages scroll area ── */}
       <main
         className="relative z-10 flex-1 overflow-y-auto"
-        style={{ padding: showWelcome ? "32px 16px 180px" : "32px 16px 180px" }}
+        style={{ padding: "32px 16px 180px" }}
       >
         <div className="mx-auto flex flex-col" style={{ maxWidth: 800 }}>
 
           {/* Welcome state */}
           {showWelcome && (
-            <div className="flex flex-col items-center text-center" style={{ paddingTop: 64 }}>
+            <div className="flex flex-col items-center text-center" style={{ paddingTop: "clamp(32px, 8vh, 64px)" }}>
               <div style={{ width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img src="/logo.png" alt="AI Assistant logo" width={56} height={56} style={{ width: 56, height: 56, objectFit: "contain", display: "block" }} />
               </div>
               <h1
+                className="welcome-heading"
                 style={{
                   margin:           "24px 0 0",
                   fontFamily:       "'Geist', sans-serif",
-                  fontSize:         34,
                   fontWeight:       600,
                   letterSpacing:    "-0.02em",
                   lineHeight:       1.15,
@@ -376,16 +376,7 @@ export default function Home() {
               </p>
 
               {/* Prompt cards */}
-              <div
-                style={{
-                  marginTop:           40,
-                  width:               "100%",
-                  display:             "grid",
-                  gridTemplateColumns: "repeat(3,1fr)",
-                  gap:                 16,
-                }}
-                className="sm:grid-cols-3 grid-cols-1"
-              >
+              <div className="prompt-grid" style={{ marginTop: 40 }}>
                 {STARTER_PROMPTS.map((p) => (
                   <PromptCard key={p.title} {...p} onClick={() => { setInput(p.prompt); setTimeout(() => textareaRef.current?.focus(), 50); }} />
                 ))}
@@ -428,7 +419,7 @@ export default function Home() {
                   </div>
                 )}
 
-                <div style={{ maxWidth: msg.role === "user" ? "75%" : "78%" }}>
+                <div className={msg.role === "user" ? "bubble-user" : "bubble-ai"}>
                   <div
                     style={
                       msg.role === "user"
@@ -562,8 +553,8 @@ export default function Home() {
 
       {/* ── Floating input ── */}
       <div
-        className="absolute bottom-0 left-0 w-full z-30"
-        style={{ padding: "64px 16px 22px", background: "linear-gradient(to top,#060912 38%,rgba(6,9,18,0.85) 70%,transparent)", pointerEvents: "none" }}
+        className="absolute bottom-0 left-0 w-full z-30 safe-bottom"
+        style={{ paddingTop: 64, paddingLeft: 16, paddingRight: 16, background: "linear-gradient(to top,#060912 38%,rgba(6,9,18,0.85) 70%,transparent)", pointerEvents: "none" }}
       >
         <div className="mx-auto" style={{ maxWidth: 800, pointerEvents: "auto" }}>
           {messageCount >= MESSAGE_LIMIT ? (
