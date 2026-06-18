@@ -143,3 +143,60 @@ html, body { height: 100%; }
 .animate-fade-in     { animation: fade-in 0.25s ease-out forwards; }
 .animate-cursor-blink{ animation: cursor-blink 0.85s ease-in-out infinite; }
 .animate-spin-slow   { animation: spin 0.8s linear infinite; }
+
+/* ── Mobile / responsive ── */
+
+/* Dynamic viewport height — fixes address-bar overlap on iOS/Android */
+.h-dvh { height: 100dvh; }
+
+/* iOS safe-area bottom for the floating input */
+.safe-bottom {
+  padding-bottom: max(22px, calc(16px + env(safe-area-inset-bottom)));
+}
+
+/* Prevent iOS auto-zoom on input focus (needs font-size ≥ 16px) */
+@media (max-width: 640px) {
+  input, textarea { font-size: 16px !important; }
+}
+
+/* Prompt cards: 1-col on mobile, 3-col on sm+ */
+.prompt-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  width: 100%;
+}
+@media (min-width: 640px) {
+  .prompt-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+}
+
+/* Hide upload label text on mobile, show on sm+ */
+.upload-label { display: none; }
+@media (min-width: 640px) {
+  .upload-label { display: inline; }
+}
+
+/* Compact header padding on mobile */
+.header-inner {
+  height: 56px;
+  padding: 0 12px;
+}
+@media (min-width: 640px) {
+  .header-inner { height: 64px; padding: 0 24px; }
+}
+
+/* Welcome heading — smaller on mobile */
+.welcome-heading {
+  font-size: 26px;
+}
+@media (min-width: 640px) {
+  .welcome-heading { font-size: 34px; }
+}
+
+/* Message bubble max-width responsive */
+.bubble-user { max-width: 88%; }
+.bubble-ai   { max-width: 92%; }
+@media (min-width: 640px) {
+  .bubble-user { max-width: 75%; }
+  .bubble-ai   { max-width: 78%; }
+}
