@@ -9,22 +9,22 @@ html, body {
 @keyframes message-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes wave {
   0%, 60%, 100% { transform: translateY(0); }
-  30%           { transform: translateY(-6px); }
+  30%           { transform: translateY(-5px); }
 }
 
 @keyframes cursor-blink {
@@ -36,12 +36,17 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
 .animate-message-in {
-  animation: message-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: message-in 0.25s ease-out forwards;
 }
 
 .animate-fade-in {
-  animation: fade-in 0.25s ease-out forwards;
+  animation: fade-in 0.2s ease-out forwards;
 }
 
 .animate-cursor-blink {
@@ -52,11 +57,26 @@ html, body {
   animation: spin 0.8s linear infinite;
 }
 
-/* Blinking cursor appended after the last rendered markdown element */
+/* Blinking cursor after last streamed element */
 .markdown-streaming > *:last-child::after {
   content: "▋";
   display: inline;
   animation: cursor-blink 0.85s ease-in-out infinite;
-  color: rgb(167 139 250);   /* violet-400 */
+  color: #CC785C;
   margin-left: 1px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D9C9B8;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C4A882;
 }
