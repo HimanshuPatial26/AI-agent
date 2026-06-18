@@ -56,35 +56,36 @@ export default function Home() {
     ta.style.height = Math.min(ta.scrollHeight, 128) + "px";
   }, [input]);
 
-  /* ── Shooting stars ── */
+  /* ── Video background watchdog ── */
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const container = document.getElementById("star-container");
-    if (!container) return;
-
-    const createStar = () => {
-      const star = document.createElement("div");
-      star.className = "shooting-star";
-      const top      = Math.random() * 80;
-      const left     = Math.random() * 80;
-      const duration = Math.random() * 2000 + 2000;
-      const delay    = Math.random() * 5000;
-      const angle    = Math.random() * 45 + 30;
-      star.style.top              = top + "%";
-      star.style.left             = left + "%";
-      star.style.animationDuration= duration + "ms";
-      star.style.animationDelay   = delay + "ms";
-      star.style.transform        = `rotate(${angle}deg)`;
-      container.appendChild(star);
-      setTimeout(() => {
-        star.remove();
-        if (!reduced) createStar();
-      }, duration + delay);
+    const video = document.getElementById("bg-video") as HTMLVideoElement | null;
+    if (!video) return;
+    video.loop = true;
+    video.muted = true;
+    const tryPlay = () => { const p = video.play(); if (p && p.catch) p.catch(() => {}); };
+    tryPlay();
+    video.addEventListener("canplay", tryPlay);
+    video.addEventListener("stalled", tryPlay);
+    const onVis = () => { if (!document.hidden) tryPlay(); };
+    document.addEventListener("visibilitychange", onVis);
+    let last = -1, stuck = 0;
+    const watchdog = setInterval(() => {
+      if (!video || document.hidden) { last = -1; return; }
+      const t = video.currentTime;
+      if (video.paused) { tryPlay(); return; }
+      if (t === last) {
+        stuck++;
+        if (stuck >= 2) {
+          try { video.currentTime = (t > 0.1 && t < video.duration - 0.3) ? t : 0; } catch (_) {}
+          tryPlay(); stuck = 0;
+        }
+      } else { stuck = 0; }
+      last = t;
+    }, 1000);
+    return () => {
+      clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", onVis);
     };
-
-    const count = reduced ? 2 : 6;
-    for (let i = 0; i < count; i++) setTimeout(() => createStar(), i * 1500);
   }, []);
 
   /* ── Send ── */
@@ -219,8 +220,30 @@ export default function Home() {
         fontFamily: "'Anybody', system-ui, sans-serif",
       }}
     >
-      {/* Shooting star background */}
-      <div id="star-container" className="shooting-star-container" />
+      {/* ── Animated video background ── */}
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+        <video
+          id="bg-video"
+          src="/bg.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{
+            position:   "absolute",
+            inset:      0,
+            width:      "100%",
+            height:     "100%",
+            objectFit:  "cover",
+            transform:  "scale(1.04)",
+            filter:     "saturate(1.12)",
+            opacity:    0.9,
+          }}
+        />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 34% 58% at 50% 50%, rgba(6,9,18,0.94) 0%, rgba(6,9,18,0.7) 45%, rgba(6,9,18,0) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 62% 106% at 50% 45%, rgba(6,9,18,0.25) 0%, rgba(6,9,18,0) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,9,18,0.4) 0%, transparent 22%, transparent 72%, rgba(6,9,18,0.72) 100%)" }} />
+      </div>
 
       {/* ── Header ── */}
       <header
@@ -235,7 +258,9 @@ export default function Home() {
         <div className="flex items-center justify-between h-16 px-6" style={{ maxWidth: "100%" }}>
           {/* Logo + name */}
           <div className="flex items-center gap-3">
-            <AILogoMark />
+            <span style={{ flex: "none", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src="/logo.png" alt="AI Assistant logo" width={30} height={30} style={{ width: 30, height: 30, objectFit: "contain", display: "block" }} />
+            </span>
             <span
               style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "#f2f4ff" }}
             >
@@ -327,7 +352,9 @@ export default function Home() {
           {/* Welcome state */}
           {showWelcome && (
             <div className="flex flex-col items-center text-center" style={{ paddingTop: 64 }}>
-              <AILogoMark size={56} />
+              <div style={{ width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src="/logo.png" alt="AI Assistant logo" width={56} height={56} style={{ width: 56, height: 56, objectFit: "contain", display: "block" }} />
+              </div>
               <h1
                 style={{
                   margin:           "24px 0 0",
@@ -397,7 +424,7 @@ export default function Home() {
                       marginTop:    2,
                     }}
                   >
-                    <AILogoMark size={22} />
+                    <img src="/logo.png" alt="AI Assistant logo" width={24} height={24} style={{ width: 24, height: 24, objectFit: "contain", display: "block" }} />
                   </div>
                 )}
 
@@ -501,7 +528,7 @@ export default function Home() {
                     justifyContent: "center",
                   }}
                 >
-                  <AILogoMark size={22} />
+                  <img src="/logo.png" alt="AI Assistant logo" width={22} height={22} style={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
                 </div>
 
                 {isSearching ? (
