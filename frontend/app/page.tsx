@@ -11,9 +11,8 @@ interface ModelInfo {
 }
 
 const MODELS: ModelInfo[] = [
-  { id: "gemini-2.5-flash",        label: "Gemini 2.5 Flash", provider: "Google" },
   { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B",   provider: "Groq"   },
-  { id: "llama3-8b-8192",          label: "Llama 3 8B",       provider: "Groq"   },
+  { id: "gemini-2.5-flash",        label: "Gemini 2.5 Flash", provider: "Google" },
 ];
 
 interface Source     { title: string; url: string; content: string; }
@@ -202,11 +201,15 @@ export default function Home() {
   const isCurrentLimited = rateLimitedModels.has(selectedModel);
   const showWelcome      = messages.length === 0 && !loading;
 
+  const handleLoadChat = () => {
+    const msgs: Message[] = historyItems.map((m) => ({ role: m.role, content: m.message }));
+    setMessages(msgs);
+    setSidebarOpen(false);
+  };
+
   const handleNewChat = () => {
     setMessages([]);
     setInput("");
-    setMessageCount(0);
-    localStorage.setItem("chat_message_count", "0");
     setLoading(false);
     setIsSearching(false);
   };
@@ -253,6 +256,7 @@ export default function Home() {
         loading={historyLoading}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
+        onLoadChat={handleLoadChat}
       />
 
       {/* ── Main column ── */}
@@ -1063,13 +1067,14 @@ function GlobeIcon() {
 /*  History Sidebar — Glass Design                            */
 /* ══════════════════════════════════════════════════════════ */
 function HistorySidebar({
-  open, items, loading, onClose, onNewChat,
+  open, items, loading, onClose, onNewChat, onLoadChat,
 }: {
-  open:       boolean;
-  items:      HistoryMsg[];
-  loading:    boolean;
-  onClose:    () => void;
-  onNewChat:  () => void;
+  open:        boolean;
+  items:       HistoryMsg[];
+  loading:     boolean;
+  onClose:     () => void;
+  onNewChat:   () => void;
+  onLoadChat:  () => void;
 }) {
   /* Group flat list into Q&A pairs */
   const pairs: { user: HistoryMsg; assistant?: HistoryMsg }[] = [];
@@ -1252,7 +1257,7 @@ function HistorySidebar({
                 Recent · {pairs.length} exchange{pairs.length !== 1 ? "s" : ""}
               </p>
               {pairs.map((pair, idx) => (
-                <HistoryPairCard key={idx} pair={pair} />
+                <HistoryPairCard key={idx} pair={pair} onLoadChat={onLoadChat} />
               ))}
             </>
           )}
@@ -1275,7 +1280,7 @@ function HistorySidebar({
   );
 }
 
-function HistoryPairCard({ pair }: { pair: { user: HistoryMsg; assistant?: HistoryMsg } }) {
+function HistoryPairCard({ pair, onLoadChat }: { pair: { user: HistoryMsg; assistant?: HistoryMsg }; onLoadChat: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [hovered,  setHovered]  = useState(false);
 
@@ -1329,6 +1334,33 @@ function HistoryPairCard({ pair }: { pair: { user: HistoryMsg; assistant?: Histo
         <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 12, color: expanded ? "#c8d8f8" : "#9dafc8", lineHeight: 1.45, transition: "color .2s" }}>
           {truncate(pair.user.message, 90)}
         </p>
+        {hovered && (
+          <div
+            onClick={(e) => { e.stopPropagation(); onLoadChat(); }}
+            style={{
+              marginTop:      7,
+              display:        "inline-flex",
+              alignItems:     "center",
+              gap:            5,
+              padding:        "4px 9px",
+              borderRadius:   7,
+              background:     "rgba(59,130,246,0.18)",
+              border:         "1px solid rgba(96,165,250,0.3)",
+              cursor:         "pointer",
+              fontFamily:     "'Geist',sans-serif",
+              fontSize:       10,
+              fontWeight:     600,
+              color:          "#93c5fd",
+              letterSpacing:  "0.02em",
+              transition:     "background .15s",
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Open in chat
+          </div>
+        )}
       </button>
 
       {expanded && pair.assistant && (
