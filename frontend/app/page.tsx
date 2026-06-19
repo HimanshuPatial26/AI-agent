@@ -28,16 +28,13 @@ export default function Home() {
   const [input,             setInput]             = useState("");
   const [loading,           setLoading]           = useState(false);
   const [isSearching,       setIsSearching]       = useState(false);
-  const [uploading,         setUploading]         = useState(false);
   const [userId,            setUserId]            = useState<string | null>(null);
-  const [uploadStatus,      setUploadStatus]      = useState<string | null>(null);
   const [messageCount,      setMessageCount]      = useState(0);
   const [selectedModel,     setSelectedModel]     = useState(MODELS[0].id);
   const [rateLimitedModels, setRateLimitedModels] = useState<Set<string>>(new Set());
   const [webSearchEnabled,  setWebSearchEnabled]  = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef   = useRef<HTMLInputElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -180,27 +177,6 @@ export default function Home() {
     }
   };
 
-  /* ── Upload ── */
-  const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadStatus(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      const res = await fetch(`${API_URL}/upload-file`, { method: "POST", body: formData });
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Upload failed"); }
-      setUploadStatus(`"${file.name}" uploaded`);
-    } catch (err: unknown) {
-      setUploadStatus(`Error: ${err instanceof Error ? err.message : "Upload failed"}`);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      setTimeout(() => setUploadStatus(null), 4000);
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
@@ -259,12 +235,12 @@ export default function Home() {
           {/* Logo + name */}
           <div className="flex items-center gap-3">
             <span style={{ flex: "none", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="/logo.png" alt="AI Assistant logo" width={30} height={30} style={{ width: 30, height: 30, objectFit: "contain", display: "block" }} />
+              <img src="/logo.png" alt="AI Med-pedia logo" width={30} height={30} style={{ width: 30, height: 30, objectFit: "contain", display: "block" }} />
             </span>
             <span
               style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "#f2f4ff" }}
             >
-              AI Assistant
+              AI Med-pedia
             </span>
             <span
               className="w-2 h-2 rounded-full"
@@ -280,40 +256,6 @@ export default function Home() {
               rateLimited={rateLimitedModels}
               onSelect={setSelectedModel}
             />
-
-            {uploadStatus && (
-              <span
-                key={uploadStatus}
-                className="animate-fade-in hidden sm:inline-flex text-xs px-3 py-1.5 rounded-full border font-medium shrink-0"
-                style={
-                  uploadStatus.startsWith("Error")
-                    ? { background: "rgba(248,113,113,0.1)", color: "#f87171", borderColor: "rgba(248,113,113,0.2)" }
-                    : { background: "rgba(52,211,153,0.1)", color: "#34d399", borderColor: "rgba(52,211,153,0.2)" }
-                }
-              >
-                {uploadStatus}
-              </span>
-            )}
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 text-xs font-medium rounded-xl transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none shrink-0"
-              style={{
-                padding:     "8px 14px",
-                border:      "1px solid rgba(255,255,255,0.08)",
-                background:  "rgba(255,255,255,0.04)",
-                color:       "rgba(232,236,248,0.6)",
-                fontFamily:  "'Geist', sans-serif",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.9)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.6)"; }}
-            >
-              {uploading
-                ? <><span className="w-3.5 h-3.5 rounded-full border-2 animate-spin-slow" style={{ borderColor: "rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.8)" }} />Uploading…</>
-                : <><UploadIcon /><span className="upload-label">Upload File</span></>}
-            </button>
-            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden" onChange={uploadFile} />
 
             <button
               className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
@@ -353,7 +295,7 @@ export default function Home() {
           {showWelcome && (
             <div className="flex flex-col items-center text-center" style={{ paddingTop: "clamp(32px, 8vh, 64px)" }}>
               <div style={{ width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <img src="/logo.png" alt="AI Assistant logo" width={56} height={56} style={{ width: 56, height: 56, objectFit: "contain", display: "block" }} />
+                <img src="/logo.png" alt="AI Med-pedia logo" width={56} height={56} style={{ width: 56, height: 56, objectFit: "contain", display: "block" }} />
               </div>
               <h1
                 className="welcome-heading"
@@ -369,16 +311,20 @@ export default function Home() {
                   color:            "transparent",
                 }}
               >
-                Hello! How can I help you today?
+                Your AI Medical Information Assistant
               </h1>
-              <p style={{ margin: "14px 0 0", maxWidth: 420, fontSize: 16, lineHeight: 1.6, color: "#aab4c9" }}>
-                I&apos;m ready to assist you with writing, learning, analyzing, or anything else you might need.
+              <p style={{ margin: "14px 0 0", maxWidth: 480, fontSize: 16, lineHeight: 1.6, color: "#aab4c9" }}>
+                Ask me about symptoms, medications, nutrition, or general health guidance. Always consult a qualified doctor for personal medical advice.
               </p>
 
-              {/* Prompt cards */}
-              <div className="prompt-grid" style={{ marginTop: 40 }}>
-                {STARTER_PROMPTS.map((p) => (
-                  <PromptCard key={p.title} {...p} onClick={() => { setInput(p.prompt); setTimeout(() => textareaRef.current?.focus(), 50); }} />
+              {/* Quick-start medical questions */}
+              <div style={{ marginTop: 36, display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", maxWidth: 680 }}>
+                {QUICK_QUESTIONS.map((q) => (
+                  <QuickQuestionPill
+                    key={q}
+                    question={q}
+                    onClick={() => { setInput(q); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                  />
                 ))}
               </div>
 
@@ -386,7 +332,6 @@ export default function Home() {
               <p style={{ marginTop: 32, fontSize: 12, color: "rgba(232,236,248,0.35)", fontFamily: "'Geist',sans-serif" }}>
                 Chatting with <span style={{ color: "#7eb0ff" }}>{currentModel.label}</span>
                 {webSearchEnabled && <span style={{ color: "#fb923c", marginLeft: 8 }}>· web search on</span>}
-                &nbsp;· PDF · DOCX · TXT · CSV · MD
               </p>
             </div>
           )}
@@ -415,7 +360,7 @@ export default function Home() {
                       marginTop:    2,
                     }}
                   >
-                    <img src="/logo.png" alt="AI Assistant logo" width={24} height={24} style={{ width: 24, height: 24, objectFit: "contain", display: "block" }} />
+                    <img src="/logo.png" alt="AI Med-pedia logo" width={24} height={24} style={{ width: 24, height: 24, objectFit: "contain", display: "block" }} />
                   </div>
                 )}
 
@@ -519,7 +464,7 @@ export default function Home() {
                     justifyContent: "center",
                   }}
                 >
-                  <img src="/logo.png" alt="AI Assistant logo" width={22} height={22} style={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
+                  <img src="/logo.png" alt="AI Med-pedia logo" width={22} height={22} style={{ width: 22, height: 22, objectFit: "contain", display: "block" }} />
                 </div>
 
                 {isSearching ? (
@@ -614,29 +559,6 @@ export default function Home() {
                     }}
                   >
                     <GlobeIcon />
-                  </button>
-
-                  {/* Upload button */}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    style={{
-                      width:        42,
-                      height:       42,
-                      flex:         "none",
-                      border:       "none",
-                      background:   "transparent",
-                      borderRadius: 9999,
-                      cursor:       "pointer",
-                      display:      "flex",
-                      alignItems:   "center",
-                      justifyContent: "center",
-                      color:        "#aab4c9",
-                    }}
-                  >
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                    </svg>
                   </button>
 
                   {/* Textarea */}
@@ -766,7 +688,7 @@ export default function Home() {
               color:      "rgba(232,236,248,0.3)",
             }}
           >
-            AI Assistant can make mistakes. Consider verifying important information.
+            AI Med-pedia provides general health information only. Always consult a qualified healthcare professional for medical advice.
           </p>
         </div>
       </div>
@@ -909,30 +831,21 @@ function ModelSelector({ models, selected, rateLimited, onSelect }: {
 }
 
 /* ══════════════════════════════════════════════════════════ */
-/*  Starter Prompts                                           */
+/*  Medical Quick-Start Questions                             */
 /* ══════════════════════════════════════════════════════════ */
-const STARTER_PROMPTS = [
-  {
-    icon:     "mail",
-    title:    "Draft an email",
-    subtitle: "Requesting a project deadline extension.",
-    prompt:   "Draft an email requesting a project deadline extension.",
-  },
-  {
-    icon:     "science",
-    title:    "Explain physics",
-    subtitle: "Quantum mechanics for a 5-year-old.",
-    prompt:   "Explain quantum mechanics physics to a 5-year-old.",
-  },
-  {
-    icon:     "flight",
-    title:    "Write an itinerary",
-    subtitle: "3-day trip to Kyoto, focusing on food.",
-    prompt:   "Write a 3-day Kyoto itinerary focused on food.",
-  },
+const QUICK_QUESTIONS = [
+  "What are the warning signs of a heart attack?",
+  "What are the symptoms of a stroke?",
+  "When should a high fever be considered an emergency?",
+  "How can I lower my cholesterol naturally?",
+  "What foods should I avoid with high blood pressure?",
+  "How much exercise is recommended for heart health?",
+  "What are the side effects of steroids?",
+  "How do antihistamines work?",
+  "What is the difference between ibuprofen and acetaminophen?",
 ];
 
-function PromptCard({ icon, title, subtitle, onClick }: { icon: string; title: string; subtitle: string; onClick: () => void }) {
+function QuickQuestionPill({ question, onClick }: { question: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
@@ -940,37 +853,31 @@ function PromptCard({ icon, title, subtitle, onClick }: { icon: string; title: s
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        textAlign:      "left",
         cursor:         "pointer",
-        padding:        22,
-        borderRadius:   14,
-        background:     hovered ? "rgba(59,130,246,0.08)" : "rgba(255,255,255,0.04)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        border:         hovered ? "1px solid rgba(96,165,250,0.4)" : "1px solid rgba(255,255,255,0.09)",
-        boxShadow:      hovered ? "0 12px 28px rgba(0,0,0,0.45)" : "0 4px 18px rgba(0,0,0,0.3)",
-        transform:      hovered ? "translateY(-3px)" : "translateY(0)",
-        transition:     "transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease",
+        padding:        "9px 16px",
+        borderRadius:   9999,
+        background:     hovered ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        border:         hovered ? "1px solid rgba(96,165,250,0.45)" : "1px solid rgba(255,255,255,0.09)",
+        boxShadow:      hovered ? "0 4px 14px rgba(0,0,0,0.35)" : "0 2px 8px rgba(0,0,0,0.2)",
+        transform:      hovered ? "translateY(-2px)" : "translateY(0)",
+        transition:     "transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease",
+        fontFamily:     "'Geist',sans-serif",
+        fontSize:       13,
+        color:          hovered ? "#c8d8f8" : "#9aa4ba",
+        whiteSpace:     "nowrap",
         display:        "flex",
-        flexDirection:  "column",
-        gap:            10,
+        alignItems:     "center",
+        gap:            7,
       }}
     >
-      <span style={{ color: "#5b9bff" }}>
-        <PromptIcon name={icon} />
-      </span>
-      <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 15, fontWeight: 600, color: "#eef1fb" }}>{title}</span>
-      <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 12, lineHeight: 1.45, color: "#9aa4ba" }}>{subtitle}</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={hovered ? "#7eb0ff" : "#5b7a99"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+      </svg>
+      {question}
     </button>
   );
-}
-
-function PromptIcon({ name }: { name: string }) {
-  const props = { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (name === "mail")    return <svg {...props}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>;
-  if (name === "science") return <svg {...props}><path d="M9 3h6M10 3v6.5l-4.8 8.3A2 2 0 0 0 6.9 21h10.2a2 2 0 0 0 1.7-3.2L14 9.5V3" /><line x1="8" y1="14" x2="16" y2="14" /></svg>;
-  if (name === "flight")  return <svg {...props}><path d="M21 15.5v-1.6l-7.5-4.7V4.2a1.5 1.5 0 0 0-3 0v5L3 13.9v1.6l7.5-2.3v4.6l-2 1.4v1.3l3.5-1 3.5 1v-1.3l-2-1.4v-4.6z" /></svg>;
-  return null;
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -1091,10 +998,3 @@ function GlobeIcon() {
   );
 }
 
-function UploadIcon() {
-  return (
-    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-    </svg>
-  );
-}
