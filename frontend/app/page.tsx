@@ -202,27 +202,26 @@ export default function Home() {
   const isCurrentLimited = rateLimitedModels.has(selectedModel);
   const showWelcome      = messages.length === 0 && !loading;
 
+  const handleNewChat = () => {
+    setMessages([]);
+    setInput("");
+    setMessageCount(0);
+    localStorage.setItem("chat_message_count", "0");
+    setLoading(false);
+    setIsSearching(false);
+  };
+
   return (
     <div
       className="flex h-dvh overflow-hidden"
       style={{
+        position:   "relative",
         background: "radial-gradient(ellipse 120% 85% at 50% 100%, #0d1628 0%, #060912 60%)",
-        color: "#e8ecf8",
+        color:      "#e8ecf8",
         fontFamily: "'Anybody', system-ui, sans-serif",
       }}
     >
-      {/* ── History Sidebar ── */}
-      <HistorySidebar
-        open={sidebarOpen}
-        items={historyItems}
-        loading={historyLoading}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      {/* ── Main column ── */}
-      <div className="flex flex-col flex-1 min-w-0 relative">
-
-      {/* ── Animated video background ── */}
+      {/* ── Animated video background (full-page, behind everything) ── */}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
         <video
           id="bg-video"
@@ -232,20 +231,32 @@ export default function Home() {
           loop
           playsInline
           style={{
-            position:   "absolute",
-            inset:      0,
-            width:      "100%",
-            height:     "100%",
-            objectFit:  "cover",
-            transform:  "scale(1.04)",
-            filter:     "saturate(1.12)",
-            opacity:    0.9,
+            position:  "absolute",
+            inset:     0,
+            width:     "100%",
+            height:    "100%",
+            objectFit: "cover",
+            transform: "scale(1.04)",
+            filter:    "saturate(1.12)",
+            opacity:   0.9,
           }}
         />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 34% 58% at 50% 50%, rgba(6,9,18,0.94) 0%, rgba(6,9,18,0.7) 45%, rgba(6,9,18,0) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 62% 106% at 50% 45%, rgba(6,9,18,0.25) 0%, rgba(6,9,18,0) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,9,18,0.4) 0%, transparent 22%, transparent 72%, rgba(6,9,18,0.72) 100%)" }} />
       </div>
+
+      {/* ── History Sidebar ── */}
+      <HistorySidebar
+        open={sidebarOpen}
+        items={historyItems}
+        loading={historyLoading}
+        onClose={() => setSidebarOpen(false)}
+        onNewChat={handleNewChat}
+      />
+
+      {/* ── Main column ── */}
+      <div className="flex flex-col flex-1 min-w-0 relative">
 
       {/* ── Header ── */}
       <header
@@ -1049,160 +1060,291 @@ function GlobeIcon() {
 }
 
 /* ══════════════════════════════════════════════════════════ */
-/*  History Sidebar                                           */
+/*  History Sidebar — Glass Design                            */
 /* ══════════════════════════════════════════════════════════ */
 function HistorySidebar({
-  open, items, loading, onClose,
+  open, items, loading, onClose, onNewChat,
 }: {
-  open:    boolean;
-  items:   HistoryMsg[];
-  loading: boolean;
-  onClose: () => void;
+  open:       boolean;
+  items:      HistoryMsg[];
+  loading:    boolean;
+  onClose:    () => void;
+  onNewChat:  () => void;
 }) {
-  /* Group flat message list into [{userMsg, assistantMsg}] pairs */
+  /* Group flat list into Q&A pairs */
   const pairs: { user: HistoryMsg; assistant?: HistoryMsg }[] = [];
   for (let i = 0; i < items.length; i++) {
     if (items[i].role === "user") {
       const next = items[i + 1];
-      pairs.push({
-        user:      items[i],
-        assistant: next?.role === "assistant" ? next : undefined,
-      });
+      pairs.push({ user: items[i], assistant: next?.role === "assistant" ? next : undefined });
       if (next?.role === "assistant") i++;
     }
   }
 
   return (
-    <div
-      style={{
-        width:          open ? 270 : 0,
-        minWidth:       open ? 270 : 0,
-        overflow:       "hidden",
-        transition:     "width .25s ease, min-width .25s ease",
-        display:        "flex",
-        flexDirection:  "column",
-        background:     "rgba(6,9,18,0.97)",
-        borderRight:    open ? "1px solid rgba(255,255,255,0.07)" : "none",
-        zIndex:         40,
-        flexShrink:     0,
-      }}
-    >
-      {/* Sidebar header */}
+    <>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+      `}</style>
+
       <div
         style={{
-          display:      "flex",
-          alignItems:   "center",
-          justifyContent: "space-between",
-          padding:      "16px 14px 12px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          flexShrink:   0,
+          width:              open ? 272 : 0,
+          minWidth:           open ? 272 : 0,
+          overflow:           "hidden",
+          transition:         "width .3s cubic-bezier(.4,0,.2,1), min-width .3s cubic-bezier(.4,0,.2,1)",
+          display:            "flex",
+          flexDirection:      "column",
+          position:           "relative",
+          zIndex:             40,
+          flexShrink:         0,
+          /* glass effect */
+          background:         "rgba(8,14,32,0.52)",
+          backdropFilter:     "blur(28px) saturate(1.6)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.6)",
+          borderRight:        open ? "1px solid rgba(255,255,255,0.09)" : "none",
+          boxShadow:          open ? "inset -1px 0 0 rgba(96,165,250,0.06), 4px 0 24px rgba(0,0,0,0.35)" : "none",
         }}
       >
-        <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 13, fontWeight: 600, color: "#c8d8f8", letterSpacing: "0.01em" }}>
-          Chat History
-        </span>
-        <button
-          onClick={onClose}
-          style={{ border: "none", background: "transparent", cursor: "pointer", color: "rgba(232,236,248,0.35)", padding: 4, lineHeight: 0 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
+        {/* Top accent line */}
+        {open && (
+          <div style={{
+            position:   "absolute",
+            top:        0,
+            left:       0,
+            right:      0,
+            height:     1,
+            background: "linear-gradient(90deg, transparent, rgba(96,165,250,0.4), transparent)",
+            zIndex:     1,
+          }} />
+        )}
 
-      {/* Sidebar body */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
-        {loading && (
-          <div style={{ display: "flex", justifyContent: "center", paddingTop: 32 }}>
-            <span
-              style={{
+        {/* ── Sidebar header ── */}
+        <div
+          style={{
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "space-between",
+            padding:        "18px 14px 14px",
+            borderBottom:   "1px solid rgba(255,255,255,0.06)",
+            flexShrink:     0,
+            background:     "rgba(255,255,255,0.015)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: 7,
+              background: "linear-gradient(135deg, rgba(59,130,246,0.3), rgba(96,165,250,0.1))",
+              border: "1px solid rgba(96,165,250,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7eb0ff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 13, fontWeight: 600, color: "#d4e2ff", letterSpacing: "0.01em" }}>
+              Chat History
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            title="Close"
+            style={{
+              border: "none", borderRadius: 7, cursor: "pointer", lineHeight: 0,
+              padding: 5, background: "rgba(255,255,255,0.04)", color: "rgba(232,236,248,0.4)",
+              transition: "background .15s, color .15s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.8)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "rgba(232,236,248,0.4)"; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* ── New Chat button ── */}
+        <div style={{ padding: "12px 10px 8px", flexShrink: 0 }}>
+          <button
+            onClick={onNewChat}
+            style={{
+              width:          "100%",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            8,
+              padding:        "10px 14px",
+              borderRadius:   12,
+              border:         "1px solid rgba(96,165,250,0.28)",
+              background:     "linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(96,165,250,0.08) 100%)",
+              backdropFilter: "blur(8px)",
+              cursor:         "pointer",
+              fontFamily:     "'Geist',sans-serif",
+              fontSize:       13,
+              fontWeight:     600,
+              color:          "#93c5fd",
+              letterSpacing:  "0.01em",
+              transition:     "background .2s, border-color .2s, box-shadow .2s, transform .15s",
+              boxShadow:      "0 2px 12px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "linear-gradient(135deg, rgba(59,130,246,0.28) 0%, rgba(96,165,250,0.14) 100%)";
+              el.style.borderColor = "rgba(96,165,250,0.5)";
+              el.style.boxShadow = "0 4px 18px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.08)";
+              el.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(96,165,250,0.08) 100%)";
+              el.style.borderColor = "rgba(96,165,250,0.28)";
+              el.style.boxShadow = "0 2px 12px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.06)";
+              el.style.transform = "translateY(0)";
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Chat
+          </button>
+        </div>
+
+        {/* ── Divider ── */}
+        <div style={{ margin: "0 10px 2px", height: 1, background: "rgba(255,255,255,0.05)" }} />
+
+        {/* ── Scrollable history list ── */}
+        <div className="sidebar-scroll" style={{ flex: 1, overflowY: "auto", padding: "8px 10px 16px" }}>
+          {loading && (
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 36 }}>
+              <span style={{
                 width: 18, height: 18, borderRadius: "50%",
-                border: "2px solid rgba(255,255,255,0.1)",
+                border: "2px solid rgba(96,165,250,0.15)",
                 borderTopColor: "#5b9bff",
                 display: "inline-block",
                 animation: "spin 0.8s linear infinite",
-              }}
-            />
-          </div>
-        )}
+              }} />
+            </div>
+          )}
 
-        {!loading && pairs.length === 0 && (
-          <p style={{ textAlign: "center", fontSize: 12, color: "rgba(232,236,248,0.25)", fontFamily: "'Geist',sans-serif", marginTop: 40 }}>
-            No history yet
-          </p>
-        )}
+          {!loading && pairs.length === 0 && (
+            <div style={{ textAlign: "center", paddingTop: 44 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12, margin: "0 auto 12px",
+                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(232,236,248,0.2)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: "rgba(232,236,248,0.22)", fontFamily: "'Geist',sans-serif" }}>No history yet</p>
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "rgba(232,236,248,0.14)", fontFamily: "'Geist',sans-serif" }}>Start a conversation to see it here</p>
+            </div>
+          )}
 
-        {!loading && pairs.map((pair, idx) => (
-          <HistoryPairCard key={idx} pair={pair} />
-        ))}
+          {!loading && pairs.length > 0 && (
+            <>
+              <p style={{ margin: "0 0 8px 2px", fontSize: 10, fontFamily: "'Geist',sans-serif", color: "rgba(232,236,248,0.25)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Recent · {pairs.length} exchange{pairs.length !== 1 ? "s" : ""}
+              </p>
+              {pairs.map((pair, idx) => (
+                <HistoryPairCard key={idx} pair={pair} />
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* ── Bottom glow accent ── */}
+        {open && (
+          <div style={{
+            position:   "absolute",
+            bottom:     0,
+            left:       0,
+            right:      0,
+            height:     60,
+            background: "linear-gradient(to top, rgba(6,14,32,0.6), transparent)",
+            pointerEvents: "none",
+          }} />
+        )}
       </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </>
   );
 }
 
 function HistoryPairCard({ pair }: { pair: { user: HistoryMsg; assistant?: HistoryMsg } }) {
   const [expanded, setExpanded] = useState(false);
+  const [hovered,  setHovered]  = useState(false);
 
-  const date = new Date(pair.user.created_at);
+  const date      = new Date(pair.user.created_at);
   const dateLabel = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const timeLabel = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-
-  const truncate = (text: string, max: number) =>
-    text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
+  const truncate  = (text: string, max: number) => text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
 
   return (
     <div
       style={{
-        marginBottom:   6,
-        borderRadius:   10,
-        border:         "1px solid rgba(255,255,255,0.06)",
-        background:     expanded ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.02)",
+        marginBottom:   5,
+        borderRadius:   11,
+        border:         `1px solid ${expanded ? "rgba(96,165,250,0.22)" : hovered ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}`,
+        background:     expanded
+          ? "rgba(59,130,246,0.07)"
+          : hovered
+          ? "rgba(255,255,255,0.04)"
+          : "rgba(255,255,255,0.02)",
+        backdropFilter: "blur(8px)",
         overflow:       "hidden",
-        transition:     "background .15s",
+        transition:     "background .2s, border-color .2s, box-shadow .2s",
+        boxShadow:      expanded ? "0 4px 16px rgba(59,130,246,0.1)" : "none",
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Question row */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        style={{
-          width:      "100%",
-          textAlign:  "left",
-          border:     "none",
-          background: "transparent",
-          cursor:     "pointer",
-          padding:    "10px 11px 8px",
-          display:    "block",
-        }}
+        style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", cursor: "pointer", padding: "10px 12px 9px" }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 10, color: "rgba(232,236,248,0.3)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            fontFamily: "'Geist',sans-serif", fontSize: 10, color: "rgba(232,236,248,0.3)",
+          }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            </svg>
             {dateLabel} · {timeLabel}
           </span>
           <svg
-            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(232,236,248,0.3)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
-            style={{ transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
+            width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke={expanded ? "rgba(96,165,250,0.7)" : "rgba(232,236,248,0.25)"}
+            strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+            style={{ transition: "transform .22s, stroke .2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
           >
             <path d="M6 9l6 6 6-6" />
           </svg>
         </div>
-        <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 12, color: "#c8d8f8", lineHeight: 1.45 }}>
+        <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 12, color: expanded ? "#c8d8f8" : "#9dafc8", lineHeight: 1.45, transition: "color .2s" }}>
           {truncate(pair.user.message, 90)}
         </p>
       </button>
 
-      {/* Assistant reply (expanded) */}
       {expanded && pair.assistant && (
-        <div
-          style={{
-            borderTop:  "1px solid rgba(255,255,255,0.05)",
-            padding:    "9px 11px 10px",
-            background: "rgba(0,0,0,0.15)",
-          }}
-        >
-          <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 11, color: "rgba(232,236,248,0.45)", lineHeight: 1.5 }}>
+        <div style={{
+          borderTop:      "1px solid rgba(96,165,250,0.1)",
+          padding:        "9px 12px 11px",
+          background:     "rgba(6,14,32,0.3)",
+          backdropFilter: "blur(4px)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+            <div style={{ width: 14, height: 14, borderRadius: 4, background: "rgba(59,130,246,0.2)", border: "1px solid rgba(96,165,250,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src="/logo.png" alt="" width={10} height={10} style={{ width: 10, height: 10, objectFit: "contain" }} />
+            </div>
+            <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 9, color: "rgba(96,165,250,0.5)", textTransform: "uppercase", letterSpacing: "0.07em" }}>AI Med-pedia</span>
+          </div>
+          <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 11, color: "rgba(196,212,240,0.55)", lineHeight: 1.55 }}>
             {truncate(pair.assistant.message, 200)}
           </p>
         </div>
