@@ -115,6 +115,12 @@ async def chat(req: ChatRequest):
     )
 
 
+@app.get("/history")
+def get_chat_history(user_id: str, limit: int = 100):
+    msgs = get_history(user_id, limit=limit)
+    return {"history": msgs}
+
+
 @app.post("/upload-file")
 def upload_file(file: UploadFile = File(...)):
     filename = file.filename or ""

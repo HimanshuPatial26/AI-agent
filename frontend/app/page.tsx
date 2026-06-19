@@ -16,8 +16,9 @@ const MODELS: ModelInfo[] = [
   { id: "llama3-8b-8192",          label: "Llama 3 8B",       provider: "Groq"   },
 ];
 
-interface Source  { title: string; url: string; content: string; }
-interface Message { role: "user" | "assistant"; content: string; sources?: Source[]; }
+interface Source     { title: string; url: string; content: string; }
+interface Message    { role: "user" | "assistant"; content: string; sources?: Source[]; }
+interface HistoryMsg { role: "user" | "assistant"; message: string; created_at: string; }
 
 const API_URL       = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const MESSAGE_LIMIT = 10;
@@ -33,6 +34,9 @@ export default function Home() {
   const [selectedModel,     setSelectedModel]     = useState(MODELS[0].id);
   const [rateLimitedModels, setRateLimitedModels] = useState<Set<string>>(new Set());
   const [webSearchEnabled,  setWebSearchEnabled]  = useState(false);
+  const [sidebarOpen,       setSidebarOpen]       = useState(false);
+  const [historyItems,      setHistoryItems]      = useState<HistoryMsg[]>([]);
+  const [historyLoading,    setHistoryLoading]    = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
@@ -52,6 +56,17 @@ export default function Home() {
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 128) + "px";
   }, [input]);
+
+  /* ── Fetch history when sidebar opens ── */
+  useEffect(() => {
+    if (!sidebarOpen || !userId) return;
+    setHistoryLoading(true);
+    fetch(`${API_URL}/history?user_id=${encodeURIComponent(userId)}&limit=100`)
+      .then((r) => r.json())
+      .then((d) => setHistoryItems(d.history ?? []))
+      .catch(() => setHistoryItems([]))
+      .finally(() => setHistoryLoading(false));
+  }, [sidebarOpen, userId]);
 
   /* ── Video background watchdog ── */
   useEffect(() => {
@@ -189,13 +204,24 @@ export default function Home() {
 
   return (
     <div
-      className="flex flex-col h-dvh overflow-hidden"
+      className="flex h-dvh overflow-hidden"
       style={{
         background: "radial-gradient(ellipse 120% 85% at 50% 100%, #0d1628 0%, #060912 60%)",
         color: "#e8ecf8",
         fontFamily: "'Anybody', system-ui, sans-serif",
       }}
     >
+      {/* ── History Sidebar ── */}
+      <HistorySidebar
+        open={sidebarOpen}
+        items={historyItems}
+        loading={historyLoading}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      {/* ── Main column ── */}
+      <div className="flex flex-col flex-1 min-w-0 relative">
+
       {/* ── Animated video background ── */}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
         <video
@@ -232,8 +258,31 @@ export default function Home() {
         }}
       >
         <div className="flex items-center justify-between header-inner" style={{ maxWidth: "100%" }}>
-          {/* Logo + name */}
+          {/* Sidebar toggle + Logo + name */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              title={sidebarOpen ? "Close history" : "Open chat history"}
+              style={{
+                width:        36,
+                height:       36,
+                flex:         "none",
+                border:       "none",
+                borderRadius: 10,
+                cursor:       "pointer",
+                display:      "flex",
+                alignItems:   "center",
+                justifyContent: "center",
+                background:   sidebarOpen ? "rgba(59,130,246,0.15)" : "transparent",
+                color:        sidebarOpen ? "#7eb0ff" : "rgba(232,236,248,0.5)",
+                transition:   "background .15s, color .15s",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2.5" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
             <span style={{ flex: "none", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src="/logo.png" alt="AI Med-pedia logo" width={30} height={30} style={{ width: 30, height: 30, objectFit: "contain", display: "block" }} />
             </span>
@@ -692,6 +741,7 @@ export default function Home() {
           </p>
         </div>
       </div>
+      </div> {/* end main column */}
     </div>
   );
 }
@@ -995,6 +1045,169 @@ function GlobeIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
         d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c-2.5 0-4-4-4-9s1.5-9 4-9m0 18c2.5 0 4-4 4-9s-1.5-9-4-9M3.05 9h17.9M3.05 15h17.9" />
     </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  History Sidebar                                           */
+/* ══════════════════════════════════════════════════════════ */
+function HistorySidebar({
+  open, items, loading, onClose,
+}: {
+  open:    boolean;
+  items:   HistoryMsg[];
+  loading: boolean;
+  onClose: () => void;
+}) {
+  /* Group flat message list into [{userMsg, assistantMsg}] pairs */
+  const pairs: { user: HistoryMsg; assistant?: HistoryMsg }[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].role === "user") {
+      const next = items[i + 1];
+      pairs.push({
+        user:      items[i],
+        assistant: next?.role === "assistant" ? next : undefined,
+      });
+      if (next?.role === "assistant") i++;
+    }
+  }
+
+  return (
+    <div
+      style={{
+        width:          open ? 270 : 0,
+        minWidth:       open ? 270 : 0,
+        overflow:       "hidden",
+        transition:     "width .25s ease, min-width .25s ease",
+        display:        "flex",
+        flexDirection:  "column",
+        background:     "rgba(6,9,18,0.97)",
+        borderRight:    open ? "1px solid rgba(255,255,255,0.07)" : "none",
+        zIndex:         40,
+        flexShrink:     0,
+      }}
+    >
+      {/* Sidebar header */}
+      <div
+        style={{
+          display:      "flex",
+          alignItems:   "center",
+          justifyContent: "space-between",
+          padding:      "16px 14px 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink:   0,
+        }}
+      >
+        <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 13, fontWeight: 600, color: "#c8d8f8", letterSpacing: "0.01em" }}>
+          Chat History
+        </span>
+        <button
+          onClick={onClose}
+          style={{ border: "none", background: "transparent", cursor: "pointer", color: "rgba(232,236,248,0.35)", padding: 4, lineHeight: 0 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Sidebar body */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 32 }}>
+            <span
+              style={{
+                width: 18, height: 18, borderRadius: "50%",
+                border: "2px solid rgba(255,255,255,0.1)",
+                borderTopColor: "#5b9bff",
+                display: "inline-block",
+                animation: "spin 0.8s linear infinite",
+              }}
+            />
+          </div>
+        )}
+
+        {!loading && pairs.length === 0 && (
+          <p style={{ textAlign: "center", fontSize: 12, color: "rgba(232,236,248,0.25)", fontFamily: "'Geist',sans-serif", marginTop: 40 }}>
+            No history yet
+          </p>
+        )}
+
+        {!loading && pairs.map((pair, idx) => (
+          <HistoryPairCard key={idx} pair={pair} />
+        ))}
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function HistoryPairCard({ pair }: { pair: { user: HistoryMsg; assistant?: HistoryMsg } }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const date = new Date(pair.user.created_at);
+  const dateLabel = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const timeLabel = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+  const truncate = (text: string, max: number) =>
+    text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
+
+  return (
+    <div
+      style={{
+        marginBottom:   6,
+        borderRadius:   10,
+        border:         "1px solid rgba(255,255,255,0.06)",
+        background:     expanded ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.02)",
+        overflow:       "hidden",
+        transition:     "background .15s",
+      }}
+    >
+      {/* Question row */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          width:      "100%",
+          textAlign:  "left",
+          border:     "none",
+          background: "transparent",
+          cursor:     "pointer",
+          padding:    "10px 11px 8px",
+          display:    "block",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <span style={{ fontFamily: "'Geist',sans-serif", fontSize: 10, color: "rgba(232,236,248,0.3)" }}>
+            {dateLabel} · {timeLabel}
+          </span>
+          <svg
+            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(232,236,248,0.3)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+            style={{ transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
+        <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 12, color: "#c8d8f8", lineHeight: 1.45 }}>
+          {truncate(pair.user.message, 90)}
+        </p>
+      </button>
+
+      {/* Assistant reply (expanded) */}
+      {expanded && pair.assistant && (
+        <div
+          style={{
+            borderTop:  "1px solid rgba(255,255,255,0.05)",
+            padding:    "9px 11px 10px",
+            background: "rgba(0,0,0,0.15)",
+          }}
+        >
+          <p style={{ margin: 0, fontFamily: "'Geist',sans-serif", fontSize: 11, color: "rgba(232,236,248,0.45)", lineHeight: 1.5 }}>
+            {truncate(pair.assistant.message, 200)}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
