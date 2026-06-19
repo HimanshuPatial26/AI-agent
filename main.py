@@ -124,8 +124,6 @@ def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {allowed}")
 
     contents = file.file.read()
-    if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File size cannot exceed 10MB")
 
     try:
         text = extract_text(io.BytesIO(contents), filename)
