@@ -2,21 +2,17 @@ from typing import Generator
 
 
 MODELS: dict[str, dict] = {
-    "gemini-2.5-flash": {
-        "label":    "Gemini 2.5 Flash",
-        "provider": "google",
-    },
     "llama-3.3-70b-versatile": {
         "label":    "Llama 3.3 70B",
         "provider": "groq",
     },
-    "llama3-8b-8192": {
-        "label":    "Llama 3 8B",
-        "provider": "groq",
+    "gemini-2.5-flash": {
+        "label":    "Gemini 2.5 Flash",
+        "provider": "google",
     },
 }
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
 class RateLimitError(Exception):
