@@ -59,27 +59,50 @@ async def chat(req: ChatRequest):
     message = req.message
     model = req.model if req.model in MODELS else DEFAULT_MODEL
 
-    save_message(user_id, "user", message)
+    try:
+        save_message(user_id, "user", message)
+    except Exception:
+        pass
 
-    history = get_history(user_id)
+    try:
+        history = get_history(user_id)
+    except Exception:
+        history = []
 
-    if len(history) > 0 and len(history) % 10 == 0:
-        history_text = format_history(history)
-        new_summary = summarize_history(history_text)
-        save_summary(user_id, new_summary)
+    try:
+        if len(history) > 0 and len(history) % 10 == 0:
+            history_text = format_history(history)
+            new_summary = summarize_history(history_text)
+            save_summary(user_id, new_summary)
+    except Exception:
+        pass
 
-    recent_history = format_history(get_history(user_id, limit=10))
-    summary = get_summary(user_id)
-    contexts = retrieve_chunks(message)
+    try:
+        recent_history = format_history(get_history(user_id, limit=10))
+    except Exception:
+        recent_history = ""
+
+    try:
+        summary = get_summary(user_id)
+    except Exception:
+        summary = ""
 
     async def stream():
         full_response = ""
         sources: list[dict] = []
         web_context = ""
 
+        try:
+            contexts = retrieve_chunks(message)
+        except Exception:
+            contexts = []
+
         if req.web_search:
             yield json.dumps({"searching": True}) + "\n"
-            sources = web_search(message)
+            try:
+                sources = web_search(message)
+            except Exception:
+                sources = []
             if sources:
                 web_context = "\n\n".join(
                     f"[{i + 1}] {r['title']}\nURL: {r['url']}\n{r['content']}"
@@ -99,7 +122,10 @@ async def chat(req: ChatRequest):
             yield json.dumps({"error": str(e)}) + "\n"
         finally:
             if full_response:
-                save_message(user_id, "assistant", full_response)
+                try:
+                    save_message(user_id, "assistant", full_response)
+                except Exception:
+                    pass
 
         if sources:
             yield json.dumps({"sources": sources}) + "\n"
