@@ -10,6 +10,23 @@ html, body { height: 100%; }
 ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.4); }
 
+/* ── AI Med-pedia prototype animations ── */
+@keyframes mp-beat { 0%,100%{transform:scale(1);} 8%{transform:scale(1.09);} 16%{transform:scale(0.985);} 26%{transform:scale(1.055);} 38%{transform:scale(1);} }
+@keyframes mp-ring { 0%{transform:scale(0.92);opacity:0.4;} 70%{transform:scale(1.55);opacity:0;} 100%{transform:scale(1.55);opacity:0;} }
+@keyframes mp-trace { to { stroke-dashoffset:0; } }
+@keyframes mp-node { 0%,100%{r:1.5;opacity:0.9;} 12%{r:2.5;opacity:1;} 30%{r:1.7;opacity:0.95;} }
+@keyframes mp-halo { 0%,100%{opacity:0.1;transform:scale(1);} 12%{opacity:0.36;transform:scale(1.2);} }
+@keyframes mp-dots { 0%,80%,100%{opacity:0.25;transform:translateY(0);} 40%{opacity:1;transform:translateY(-3px);} }
+@keyframes mp-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes mp-slide { from { opacity:0; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
+@keyframes mp-caret { 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+
+.mp-scroll::-webkit-scrollbar { width: 4px; }
+.mp-scroll::-webkit-scrollbar-track { background: transparent; }
+.mp-scroll::-webkit-scrollbar-thumb { background: #1E2536; border-radius: 4px; }
+.mp-scroll::-webkit-scrollbar-thumb:hover { background: #2C3760; }
+
 /* ── Animated glow ring on input ── */
 .lum-ring {
   position: absolute;
@@ -128,7 +145,7 @@ html, body { height: 100%; }
   content: "▋";
   display: inline;
   animation: cursor-blink 0.85s ease-in-out infinite;
-  color: #5b9bff;
+  color: #8FB4FF;
   margin-left: 1px;
 }
 @keyframes cursor-blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
@@ -199,4 +216,53 @@ html, body { height: 100%; }
 @media (min-width: 640px) {
   .bubble-user { max-width: 75%; }
   .bubble-ai   { max-width: 78%; }
+}
+
+/* ── AI Med-pedia layout responsiveness ── */
+.mp-card-grid { grid-template-columns: 1fr !important; }
+@media (min-width: 720px) {
+  .mp-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+/* Sidebar: static on desktop (matches the prototype exactly); an
+   off-canvas overlay on narrow screens, since the prototype has no
+   mobile spec of its own to preserve. */
+.mp-sidebar-toggle { display: inline-flex; }
+@media (min-width: 900px) {
+  .mp-sidebar-toggle { display: none; }
+}
+
+@media (max-width: 899px) {
+  .mp-sidebar {
+    position: fixed !important;
+    left: 0;
+    top: 0;
+    height: 100dvh !important;
+    z-index: 70;
+    transform: translateX(-100%);
+  }
+  .mp-sidebar.mp-sidebar-open { transform: translateX(0); }
+}
+
+.mp-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 65;
+}
+@media (min-width: 900px) {
+  .mp-sidebar-backdrop { display: none; }
+}
+
+@media (max-width: 480px) {
+  .mp-header { padding: 0 14px !important; }
+}
+
+@media (max-width: 640px) {
+  aside[data-mp-drawer] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    z-index: 60;
+  }
 }

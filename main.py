@@ -6,7 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from llm import generate_response_stream, RateLimitError, MODELS, DEFAULT_MODEL
-from memory import get_history, save_message, save_summary
+from memory import (
+    get_history, save_message, save_summary,
+    create_conversation, list_conversations, get_conversation_messages,
+    set_conversation_title, touch_conversation, generate_conversation_title,
+    save_feedback, clear_feedback,
+)
 from file_parser import extract_text, chunk_text, SUPPORTED_EXTENSIONS
 from rag import store_chunks, retrieve_chunks
 from memory import summarize_history, format_history, get_summary
@@ -28,6 +33,8 @@ class ChatRequest(BaseModel):
     message: str
     model: str | None = None
     web_search: bool = False
+    conversation_id: str | None = None
+    style: str = "clinical"
 
     @field_validator("message")
     @classmethod
@@ -37,6 +44,23 @@ class ChatRequest(BaseModel):
             raise ValueError("Message cannot be empty")
         if len(v) > 2000:
             raise ValueError("Message cannot exceed 2000 characters")
+        return v
+
+    @field_validator("style")
+    @classmethod
+    def validate_style(cls, v):
+        return v if v in ("plain", "clinical") else "clinical"
+
+
+class FeedbackRequest(BaseModel):
+    user_id: str
+    vote: str | None = None
+
+    @field_validator("vote")
+    @classmethod
+    def validate_vote(cls, v):
+        if v is not None and v not in ("up", "down"):
+            raise ValueError("vote must be 'up', 'down', or null")
         return v
 
 
@@ -59,8 +83,23 @@ async def chat(req: ChatRequest):
     message = req.message
     model = req.model if req.model in MODELS else DEFAULT_MODEL
 
+    conversation_id = req.conversation_id
+    is_new_conversation = not conversation_id
+    title = None
+
+    if is_new_conversation:
+        try:
+            title = generate_conversation_title(message)
+        except Exception:
+            title = message[:60]
+        try:
+            conv = create_conversation(user_id, title)
+            conversation_id = conv["id"] if conv else None
+        except Exception:
+            conversation_id = None
+
     try:
-        save_message(user_id, "user", message)
+        save_message(user_id, "user", message, conversation_id)
     except Exception:
         pass
 
@@ -78,7 +117,11 @@ async def chat(req: ChatRequest):
         pass
 
     try:
-        recent_history = format_history(get_history(user_id, limit=10))
+        if conversation_id:
+            conv_messages = get_conversation_messages(conversation_id, limit=10)
+            recent_history = format_history(conv_messages)
+        else:
+            recent_history = format_history(get_history(user_id, limit=10))
     except Exception:
         recent_history = ""
 
@@ -91,6 +134,12 @@ async def chat(req: ChatRequest):
         full_response = ""
         sources: list[dict] = []
         web_context = ""
+        safety_result: dict = {}
+
+        if conversation_id:
+            yield json.dumps({"conversation_id": conversation_id}) + "\n"
+        if title:
+            yield json.dumps({"title": title}) + "\n"
 
         try:
             contexts = retrieve_chunks(message)
@@ -113,6 +162,7 @@ async def chat(req: ChatRequest):
             for chunk in generate_response_stream(
                 summary, recent_history, message, contexts,
                 model=model, web_context=web_context,
+                style=req.style, safety_result=safety_result,
             ):
                 full_response += chunk
                 yield json.dumps({"chunk": chunk}) + "\n"
@@ -123,9 +173,19 @@ async def chat(req: ChatRequest):
         finally:
             if full_response:
                 try:
-                    save_message(user_id, "assistant", full_response)
+                    saved = save_message(user_id, "assistant", full_response, conversation_id)
+                    if saved and saved.get("id") is not None:
+                        yield json.dumps({"message_id": saved["id"]}) + "\n"
                 except Exception:
                     pass
+                if conversation_id:
+                    try:
+                        touch_conversation(conversation_id)
+                    except Exception:
+                        pass
+
+        if safety_result.get("tone") and safety_result["tone"] != "none":
+            yield json.dumps({"safety": safety_result}) + "\n"
 
         if sources:
             yield json.dumps({"sources": sources}) + "\n"
@@ -145,6 +205,36 @@ async def chat(req: ChatRequest):
 def get_chat_history(user_id: str, limit: int = 100):
     msgs = get_history(user_id, limit=limit)
     return {"history": msgs}
+
+
+@app.get("/conversations")
+def get_conversations(user_id: str, limit: int = 50):
+    try:
+        conversations = list_conversations(user_id, limit=limit)
+    except Exception:
+        conversations = []
+    return {"conversations": conversations}
+
+
+@app.get("/conversations/{conversation_id}/messages")
+def get_conversation(conversation_id: str, limit: int = 200):
+    try:
+        messages = get_conversation_messages(conversation_id, limit=limit)
+    except Exception:
+        messages = []
+    return {"messages": messages}
+
+
+@app.post("/messages/{message_id}/feedback")
+def post_feedback(message_id: str, req: FeedbackRequest):
+    try:
+        if req.vote is None:
+            clear_feedback(message_id, req.user_id)
+        else:
+            save_feedback(message_id, req.user_id, req.vote)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save feedback: {e}")
+    return {"message_id": message_id, "vote": req.vote}
 
 
 @app.post("/upload-file")
