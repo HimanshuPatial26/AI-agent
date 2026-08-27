@@ -43,7 +43,7 @@ export default function MarkdownMessage({ content, streaming }: Props) {
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer"
               className="underline underline-offset-2 transition-colors"
-              style={{ color: "#5b9bff" }}>
+              style={{ color: "#8FB4FF" }}>
               {children}
             </a>
           ),
@@ -61,7 +61,7 @@ export default function MarkdownMessage({ content, streaming }: Props) {
 
           /* ── Quote / rule ── */
           blockquote: ({ children }) => (
-            <blockquote className="pl-3 my-2 opacity-70 italic" style={{ borderLeft: "2px solid rgba(91,155,255,0.4)" }}>
+            <blockquote className="pl-3 my-2 opacity-70 italic" style={{ borderLeft: "2px solid rgba(143,180,255,0.4)" }}>
               {children}
             </blockquote>
           ),
@@ -117,7 +117,7 @@ export default function MarkdownMessage({ content, streaming }: Props) {
             return (
               <code
                 className="rounded px-1.5 py-0.5 text-[11px] font-mono"
-                style={{ background: "rgba(91,155,255,0.1)", color: "#7eb0ff" }}
+                style={{ background: "rgba(143,180,255,0.12)", color: "#8FB4FF" }}
                 {...props}
               >
                 {children}

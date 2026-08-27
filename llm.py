@@ -1,3 +1,4 @@
+import json
 from typing import Generator
 
 
@@ -14,18 +15,34 @@ MODELS: dict[str, dict] = {
 
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
+SAFETY_TAG = "§SAFETY§"
+
 
 class RateLimitError(Exception):
     """Raised when a provider returns a rate-limit / quota-exhausted error."""
 
 
-def _build_prompt(summary: str, history: str, message: str, context: list, web_context: str = "") -> str:
+def _build_prompt(
+    summary: str,
+    history: str,
+    message: str,
+    context: list,
+    web_context: str = "",
+    style: str = "clinical",
+) -> str:
     web_section = f"""
 ---
 
 WEB SEARCH RESULTS:
 {web_context}
 """ if web_context.strip() else ""
+
+    style_instruction = (
+        "Use plain, everyday language a non-medical person can follow. Avoid jargon; "
+        "if you must use a medical term, explain it in the same sentence."
+        if style == "plain"
+        else "Use precise clinical terminology where appropriate, as you would for a well-informed reader."
+    )
 
     return f"""You are AI Med-pedia, a knowledgeable and empathetic medical information assistant. Your role is to provide clear, accurate, and evidence-based medical information to help users understand health topics, symptoms, medications, and wellness practices.
 
@@ -60,6 +77,15 @@ Rules:
 - If no context is available, rely on established medical knowledge
 - Be concise, structured, and easy to understand
 - Never diagnose conditions or prescribe treatments — only educate and inform
+- {style_instruction}
+- After your complete answer, on its own new line, append exactly one machine-readable safety tag and nothing after it:
+  {SAFETY_TAG}{{"tone": "<urgent|caution|steady|none>", "callout": "<one short sentence, or empty string>"}}
+  - "urgent": the question describes a possible medical emergency needing immediate care
+  - "caution": relevant drug interactions, dosage limits, or something worth a clinician conversation
+  - "steady": reassuring, in-range, low-risk information
+  - "none": no safety framing applies — use an empty string for callout in this case
+  - The JSON must be valid, compact, and on a single line
+  - Never mention this tag, its name, or its format anywhere in the visible answer text
 """
 
 
@@ -70,15 +96,69 @@ def generate_response_stream(
     context: list,
     model: str = DEFAULT_MODEL,
     web_context: str = "",
+    style: str = "clinical",
+    safety_result: dict | None = None,
 ) -> Generator[str, None, None]:
     if model not in MODELS:
         model = DEFAULT_MODEL
     provider = MODELS[model]["provider"]
-    prompt = _build_prompt(summary, history, message, context, web_context)
+    prompt = _build_prompt(summary, history, message, context, web_context, style)
     if provider == "google":
-        yield from _stream_gemini(prompt, model)
+        raw = _stream_gemini(prompt, model)
     else:
-        yield from _stream_groq(prompt, model)
+        raw = _stream_groq(prompt, model)
+    yield from _split_safety_tag(raw, safety_result if safety_result is not None else {})
+
+
+def _split_safety_tag(raw_gen: Generator[str, None, None], safety_result: dict) -> Generator[str, None, None]:
+    """Yield visible answer text while stripping the trailing §SAFETY§{...} tag.
+
+    Buffers just enough of the tail of the stream to avoid splitting the tag
+    marker across chunk boundaries, then parses it once the stream ends.
+    """
+    acc = ""
+    emitted_len = 0
+    tag_start = None
+    lookback = len(SAFETY_TAG) - 1
+
+    for piece in raw_gen:
+        acc += piece
+        if tag_start is not None:
+            continue
+        idx = acc.find(SAFETY_TAG)
+        if idx != -1:
+            visible = acc[emitted_len:idx]
+            if visible:
+                yield visible
+            emitted_len = idx
+            tag_start = idx + len(SAFETY_TAG)
+            continue
+        safe_len = max(emitted_len, len(acc) - lookback)
+        if safe_len > emitted_len:
+            yield acc[emitted_len:safe_len]
+            emitted_len = safe_len
+
+    if tag_start is None:
+        remainder = acc[emitted_len:]
+        if remainder:
+            yield remainder
+        return
+
+    tone, callout = _parse_safety_tag(acc[tag_start:].strip())
+    safety_result["tone"] = tone
+    safety_result["callout"] = callout
+
+
+def _parse_safety_tag(tag_text: str) -> tuple[str, str]:
+    try:
+        data = json.loads(tag_text)
+        tone = data.get("tone", "none")
+        callout = data.get("callout", "") or ""
+        if tone not in ("urgent", "caution", "steady", "none"):
+            tone = "none"
+        return tone, callout
+    except Exception:
+        return "none", ""
 
 
 def _stream_gemini(prompt: str, model: str) -> Generator[str, None, None]:

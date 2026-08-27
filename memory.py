@@ -4,13 +4,19 @@ from supabase_client import supabase
 
 
 
-def save_message(user_id, role, message):
+def save_message(user_id, role, message, conversation_id=None):
 
-    supabase.table("messages").insert({
+    row = {
         "user_id": user_id,
         "role": role,
-        "message": message
-    }).execute()
+        "message": message,
+    }
+    if conversation_id:
+        row["conversation_id"] = conversation_id
+
+    response = supabase.table("messages").insert(row).execute()
+    data = response.data
+    return data[0] if data else None
 
 
 
@@ -92,3 +98,78 @@ def format_history(history):
         text += f"{role}: {content}\n"
 
     return text
+
+
+def create_conversation(user_id, title="New enquiry"):
+    response = supabase.table("conversations").insert({
+        "user_id": user_id,
+        "title": title,
+    }).execute()
+    data = response.data
+    return data[0] if data else None
+
+
+def list_conversations(user_id, limit=50):
+    response = supabase.table("conversations") \
+        .select("*") \
+        .eq("user_id", user_id) \
+        .order("updated_at", desc=True) \
+        .limit(limit) \
+        .execute()
+    return response.data
+
+
+def get_conversation_messages(conversation_id, limit=200):
+    response = supabase.table("messages") \
+        .select("*") \
+        .eq("conversation_id", conversation_id) \
+        .order("created_at") \
+        .limit(limit) \
+        .execute()
+    return response.data
+
+
+def set_conversation_title(conversation_id, title):
+    supabase.table("conversations") \
+        .update({"title": title, "updated_at": "now()"}) \
+        .eq("id", conversation_id) \
+        .execute()
+
+
+def touch_conversation(conversation_id):
+    supabase.table("conversations") \
+        .update({"updated_at": "now()"}) \
+        .eq("id", conversation_id) \
+        .execute()
+
+
+def generate_conversation_title(question):
+    prompt = f"""Write a short title (3-6 words, no punctuation at the end, no quotes) that names the medical topic of this question. Reply with only the title.
+
+Question: {question}
+
+Title:"""
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+    )
+    title = (response.text or "").strip().strip('"').strip()
+    return title[:80] if title else question[:80]
+
+
+def save_feedback(message_id, user_id, vote):
+    response = supabase.table("message_feedback") \
+        .upsert(
+            {"message_id": message_id, "user_id": user_id, "vote": vote},
+            on_conflict="message_id,user_id",
+        ) \
+        .execute()
+    return response.data
+
+
+def clear_feedback(message_id, user_id):
+    supabase.table("message_feedback") \
+        .delete() \
+        .eq("message_id", message_id) \
+        .eq("user_id", user_id) \
+        .execute()
