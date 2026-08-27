@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os   
 
 load_dotenv()
-pc = Pinecone(api_key=os.getenv("YOUR_PINECONE_API_KEY"))
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 index_name = "chatbot-index"
 
