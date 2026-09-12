@@ -11,7 +11,6 @@
 
 import VortexScene from "../components/VortexScene";
 import HeroVortex from "../components/HeroVortex";
-import { useAdvanceScroll } from "../components/useAdvanceScroll";
 import { color, font, radius } from "../theme";
 
 /* Mirrors HomeView's QUICK_CARDS. Kept local rather than imported: HomeView is
@@ -30,12 +29,16 @@ const mono = {
   textTransform: "uppercase" as const,
 };
 
-export default function HeroPreviewPage() {
-  // The scene owns the click, so the tween lives here and is handed down.
-  const advance = useAdvanceScroll("hero-next", 1100);
+const DUNE_READOUT = [
+  { key: "FORM", value: "TRAVELLING SWELL" },
+  { key: "SHADING", value: "SLOPE / CREST" },
+  { key: "LENS", value: "SHALLOW FOCUS" },
+];
 
+export default function HeroPreviewPage() {
   return (
-    <VortexScene onSplash={advance} background={color.ink}>
+    // The scene owns the morph axis and the advance: each id is a stop on it.
+    <VortexScene sections={["hero-next", "hero-third"]} background={color.ink}>
       <HeroVortex renderCanvas={false} />
 
       {/* Where the hero's click lands, and where the scattered particles
@@ -127,6 +130,78 @@ export default function HeroPreviewPage() {
               <div style={{ fontSize: 12.5, color: color.textFaint }}>{c.sub}</div>
             </a>
           ))}
+        </div>
+      </section>
+
+      {/* Third stop. Crossing the boundary scatters the field again and it
+          settles into the dune plane. */}
+      <section
+        id="hero-third"
+        style={{
+          position: "relative",
+          minHeight: "100svh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "clamp(40px, 7vh, 76px) clamp(20px, 5vw, 48px)",
+        }}
+      >
+        <div style={{ maxWidth: 520 }}>
+          <div style={{ ...mono, color: color.textFaint, marginBottom: 16 }}>
+            03 / DOWN ON THE SURFACE
+          </div>
+          <h2
+            style={{
+              fontFamily: font.display,
+              fontWeight: 300,
+              fontSize: "clamp(26px, 4vw, 40px)",
+              lineHeight: 1.14,
+              letterSpacing: "-0.02em",
+              margin: 0,
+              textShadow: "0 2px 40px rgba(0,0,0,0.9)",
+            }}
+          >
+            Answers you can
+            <br />
+            <em style={{ fontStyle: "italic", color: color.textDim }}>
+              actually read.
+            </em>
+          </h2>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap: 32,
+            flexWrap: "wrap",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              maxWidth: 380,
+              fontSize: 13.5,
+              lineHeight: 1.7,
+              color: color.textMuted,
+              textShadow: "0 2px 30px rgba(0,0,0,0.95)",
+            }}
+          >
+            Plain language, sources attached, and a clear line between general
+            information and medical advice. Ask about a symptom, a medication,
+            or a habit — and get something you can act on or take to a
+            clinician.
+          </p>
+
+          <div style={{ display: "grid", gap: 4 }}>
+            {DUNE_READOUT.map((r) => (
+              <div key={r.key} style={{ ...mono, display: "flex", gap: 10 }}>
+                <span style={{ color: color.textMono2, minWidth: 58 }}>{r.key}</span>
+                <span style={{ color: color.textFaint }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </VortexScene>
