@@ -9,18 +9,15 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import VortexScene from "../components/VortexScene";
 import HeroVortex from "../components/HeroVortex";
+import MountainHUD from "../components/MountainHUD";
 import { color, font, radius } from "../theme";
 
-/* Mirrors HomeView's QUICK_CARDS. Kept local rather than imported: HomeView is
-   a "use client" module, so a server component gets a client reference for its
-   exports and mapping over one throws at render time. */
-const CARDS = [
-  { key: "heart", kicker: "EMERGENCY",   tint: color.urgent,    title: "Warning signs of a heart attack", sub: "Also: stroke, high fever, anaphylaxis" },
-  { key: "nsaid", kicker: "MEDICATIONS", tint: color.accentMid, title: "Ibuprofen vs acetaminophen",       sub: "Also: antihistamines, steroid effects" },
-  { key: "chol",  kicker: "EVERYDAY",    tint: color.steady,    title: "Lowering cholesterol naturally",   sub: "Also: exercise targets, sodium and BP" },
-];
+
+// Its own WebGL context, so it only mounts on the client.
+const ParticleMountain = dynamic(() => import("../components/ParticleMountain"), { ssr: false });
 
 const mono = {
   fontFamily: font.mono,
@@ -38,7 +35,13 @@ const DUNE_READOUT = [
 export default function HeroPreviewPage() {
   return (
     // The scene owns the morph axis and the advance: each id is a stop on it.
-    <VortexScene sections={["hero-next", "hero-third"]} background={color.ink}>
+    <VortexScene
+      sections={["hero-next", "hero-third"]}
+      background={color.ink}
+      // The mountain owns section 02, so the shared field stands down across it
+      // and returns for the dunes. Both ends sit inside a handover.
+      yieldRange={[0.62, 1.38]}
+    >
       <HeroVortex renderCanvas={false} />
 
       {/* Where the hero's click lands, and where the scattered particles
@@ -46,25 +49,43 @@ export default function HeroPreviewPage() {
           fills the screen. */}
       <section
         id="hero-next"
-        style={{
-          position: "relative",
-          minHeight: "100svh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "clamp(40px, 7vh, 76px) clamp(20px, 5vw, 48px)",
-        }}
+        style={{ position: "relative", minHeight: "100svh", overflow: "hidden" }}
       >
-        {/* Type sits top and bottom; the middle band is left to the terrain. */}
-        <div style={{ maxWidth: 540 }}>
-          <div style={{ ...mono, color: color.textFaint, marginBottom: 16 }}>
-            02 / START HERE
+        <ParticleMountain />
+        <MountainHUD />
+
+        {/* The foreground terrain runs straight through the copy, and a text
+            shadow alone cannot hold a headline against a field of bright
+            points. A soft scrim in that corner only. */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 2,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(78% 46% at 4% 100%, rgba(5,7,10,0.92), rgba(5,7,10,0.5) 42%, transparent 72%)",
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            left: "clamp(20px, 5vw, 48px)",
+            bottom: "clamp(40px, 7vh, 76px)",
+            maxWidth: 440,
+            zIndex: 3,
+          }}
+        >
+          <div style={{ ...mono, color: color.textFaint, marginBottom: 14 }}>
+            02 / GENERATIVE TERRAIN
           </div>
           <h2
             style={{
               fontFamily: font.display,
               fontWeight: 300,
-              fontSize: "clamp(26px, 4vw, 40px)",
+              fontSize: "clamp(24px, 3.4vw, 36px)",
               lineHeight: 1.14,
               letterSpacing: "-0.02em",
               margin: 0,
@@ -79,9 +100,8 @@ export default function HeroPreviewPage() {
           </h2>
           <p
             style={{
-              margin: "18px 0 0",
-              maxWidth: 420,
-              fontSize: 14,
+              margin: "16px 0 0",
+              fontSize: 13,
               lineHeight: 1.7,
               color: color.textMuted,
               textShadow: "0 2px 30px rgba(0,0,0,0.95)",
@@ -90,46 +110,6 @@ export default function HeroPreviewPage() {
             Every answer comes back with its sources attached. General health
             information only — not a diagnosis.
           </p>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {CARDS.map((c) => (
-            <a
-              key={c.key}
-              href="/"
-              style={{
-                display: "block",
-                padding: "18px 20px",
-                borderRadius: radius.lg,
-                border: `1px solid ${color.borderCard}`,
-                // Translucent, so the terrain reads through the cards instead
-                // of being boxed out by them.
-                background: "rgba(12,14,22,0.72)",
-                backdropFilter: "blur(6px)",
-                textDecoration: "none",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: font.mono,
-                  fontSize: 9,
-                  letterSpacing: "0.14em",
-                  color: c.tint,
-                  marginBottom: 10,
-                }}
-              >
-                {c.kicker}
-              </div>
-              <div style={{ fontSize: 15, color: color.text, marginBottom: 6 }}>{c.title}</div>
-              <div style={{ fontSize: 12.5, color: color.textFaint }}>{c.sub}</div>
-            </a>
-          ))}
         </div>
       </section>
 
