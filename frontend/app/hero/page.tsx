@@ -14,6 +14,8 @@ import VortexScene from "../components/VortexScene";
 import HeroVortex from "../components/HeroVortex";
 import MountainHUD from "../components/MountainHUD";
 import { color, font, radius } from "../theme";
+import { TRANSITION, transitionProgress, smoothstep } from "../components/transition";
+import { useCallback, useEffect, useRef } from "react";
 
 
 // Its own WebGL context, so it only mounts on the client.
@@ -32,27 +34,56 @@ const DUNE_READOUT = [
   { key: "LENS", value: "SHALLOW FOCUS" },
 ];
 
+/* Drives an element's opacity straight from scroll, on the same rAF the field
+   uses. A React state update per scroll event would re-render the page dozens of
+   times a second to change one number. */
+function useTransitionFade(range: [number, number]) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const el = ref.current;
+      if (el) el.style.opacity = String(smoothstep(range[0], range[1], transitionProgress("hero-next")));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [range]);
+  return ref;
+}
+
 export default function HeroPreviewPage() {
+  /* One source of truth for the whole choreography: the field, the hero's
+     release and the copy all read the same number, so they cannot drift. */
+  const progress = useCallback(() => transitionProgress("hero-next"), []);
+  const copyRef = useTransitionFade(TRANSITION.copyFade);
+  const hudRef = useTransitionFade(TRANSITION.hudFade);
+
   return (
-    // The scene owns the morph axis and the advance: each id is a stop on it.
+    /* The morph stops are the resting states, not the section tops: the
+       transformation owns the scroll between them, and the shared field must
+       still be a vortex all the way through it. */
     <VortexScene
-      sections={["hero-next", "hero-third"]}
+      sections={["hero-rest", "hero-third"]}
+      advanceTo={["hero-next", "hero-third"]}
+      releaseSource={progress}
       background={color.ink}
-      // The mountain owns section 02, so the shared field stands down across it
-      // and returns for the dunes. Both ends sit inside a handover.
-      yieldRange={[0.62, 1.38]}
+      yieldRange={[0.72, 1.88]}
     >
       <HeroVortex renderCanvas={false} />
 
-      {/* Where the hero's click lands, and where the scattered particles
-          reassemble. A full viewport tall so the morph completes exactly as it
-          fills the screen. */}
+      {/* The transformation and the resting landscape share one section. Its
+          first TRANSITION.scrollVh viewports drive the unravel with the stage
+          pinned; the last one is the mountain at rest, scrolling normally. */}
       <section
         id="hero-next"
-        style={{ position: "relative", minHeight: "100svh", overflow: "hidden" }}
+        style={{ position: "relative", height: `${(TRANSITION.scrollVh + 1) * 100}svh` }}
       >
-        <ParticleMountain />
-        <MountainHUD />
+        <div style={{ position: "sticky", top: 0, height: "100svh", overflow: "hidden" }}>
+        <ParticleMountain progressSource={progress} />
+        <div ref={hudRef} style={{ position: "absolute", inset: 0, opacity: 0 }}>
+          <MountainHUD />
+        </div>
 
         {/* The foreground terrain runs straight through the copy, and a text
             shadow alone cannot hold a headline against a field of bright
@@ -73,12 +104,14 @@ export default function HeroPreviewPage() {
         />
 
         <div
+          ref={copyRef}
           style={{
             position: "absolute",
             left: "clamp(20px, 5vw, 48px)",
             bottom: "clamp(40px, 7vh, 76px)",
             maxWidth: 440,
             zIndex: 3,
+            opacity: 0,
           }}
         >
           <div style={{ ...mono, color: color.textFaint, marginBottom: 14 }}>
@@ -117,6 +150,15 @@ export default function HeroPreviewPage() {
             information only — not a diagnosis.
           </p>
         </div>
+        </div>
+
+        {/* The stop the morph axis measures against: the moment the
+            transformation is finished and the landscape is simply there. */}
+        <div
+          id="hero-rest"
+          aria-hidden
+          style={{ position: "absolute", top: `${TRANSITION.scrollVh * 100}svh`, height: 1, width: 1 }}
+        />
       </section>
 
       {/* Third stop. Crossing the boundary scatters the field again and it
