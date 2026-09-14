@@ -14,7 +14,7 @@ import VortexScene from "../components/VortexScene";
 import HeroVortex from "../components/HeroVortex";
 import MountainHUD from "../components/MountainHUD";
 import { color, font, radius } from "../theme";
-import { TRANSITION, transitionProgress, smoothstep } from "../components/transition";
+import { TRANSITION, transitionProgress, unravelProgress, smoothstep } from "../components/transition";
 import { useCallback, useEffect, useRef } from "react";
 
 
@@ -43,7 +43,7 @@ function useTransitionFade(range: [number, number]) {
     let raf = 0;
     const tick = () => {
       const el = ref.current;
-      if (el) el.style.opacity = String(smoothstep(range[0], range[1], transitionProgress("hero-next")));
+      if (el) el.style.opacity = String(smoothstep(range[0], range[1], unravelProgress(transitionProgress("hero-next"))));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
