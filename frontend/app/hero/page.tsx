@@ -69,9 +69,10 @@ export default function HeroPreviewPage() {
          under the scroll on the way — landing at its start would leave the
          reader with two more viewports to scroll before anything formed. */
       advanceTo={["hero-rest", "hero-third"]}
-      /* The transformation replaces the scatter that used to mark this
-         boundary; only the dunes handover still wants one. */
-      splashAt={[1.9]}
+      /* The burst that opens the transformation, and the one that marks the
+         dunes handover. The first is what throws the hero's field across the
+         frame for the landscape to gather out of. */
+      splashAt={[0.34, 1.9]}
       releaseSource={progress}
       background={color.ink}
       /* The upper end has to clear its own ramp before the morph axis tops
