@@ -87,6 +87,9 @@ export default function HeroPreviewPage() {
           <h2
             style={{
               fontFamily: font.display,
+              // Explicit: nothing upstream sets a text colour, so an unstyled
+              // heading falls back to the UA default and renders black on black.
+              color: color.text,
               fontWeight: 300,
               fontSize: "clamp(24px, 3.4vw, 36px)",
               lineHeight: 1.14,
@@ -136,6 +139,9 @@ export default function HeroPreviewPage() {
           <h2
             style={{
               fontFamily: font.display,
+              // Explicit: nothing upstream sets a text colour, so an unstyled
+              // heading falls back to the UA default and renders black on black.
+              color: color.text,
               fontWeight: 300,
               fontSize: "clamp(26px, 4vw, 40px)",
               lineHeight: 1.14,
