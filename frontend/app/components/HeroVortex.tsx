@@ -8,6 +8,10 @@
    All copy is prop-driven so the same composition can front any page. */
 
 import dynamic from "next/dynamic";
+import { useCallback } from "react";
+import { useAdvanceScroll } from "./useAdvanceScroll";
+import LightRays from "./LightRays";
+import ScanOverlay from "./ScanOverlay";
 import { color, font } from "../theme";
 import type { CSSProperties, ReactNode } from "react";
 
@@ -24,6 +28,9 @@ const mono: CSSProperties = {
   letterSpacing: "0.14em",
   textTransform: "uppercase",
   lineHeight: 1.75,
+  // The HUD sits under the ray fan and over the sculpture, both of which lift
+  // the ground behind it. At this weight the type needs the contrast back.
+  textShadow: "0 1px 12px rgba(0,0,0,0.95)",
 };
 
 export interface HeroSpec {
@@ -53,6 +60,25 @@ export interface HeroVortexProps {
   density?: "low" | "medium" | "high";
   /** Section height. Defaults to a full viewport. */
   height?: string;
+  /** id of the element to scroll to when the field is clicked. Omit and the
+   *  click still splashes, it just does not advance the page. */
+  advanceToId?: string;
+  /** Runs alongside the scroll on click, for anything else the click triggers. */
+  onAdvance?: () => void;
+  /** Milliseconds the advance scroll takes. Matched to the splash by default so
+   *  the page travels with the particles instead of arriving ahead of them. */
+  advanceDuration?: number;
+  /** Draw the sculpture inside this section. Set false when the hero sits in a
+   *  VortexScene, which owns one canvas spanning every section. */
+  renderCanvas?: boolean;
+  /** Sweep animated light beams in from the top-right corner of this section. */
+  lightRays?: boolean;
+  /** Scales the beams' opacity. */
+  lightRaysIntensity?: number;
+  /** Draw the computer-vision scan geometry over the sculpture. */
+  scanOverlay?: boolean;
+  /** Master opacity of the scan geometry. */
+  scanOpacity?: number;
   style?: CSSProperties;
 }
 
@@ -127,41 +153,65 @@ export default function HeroVortex({
   ],
   channels = ["SIGNAL / STABLE", "DRIFT / CONTINUOUS", "RESPONSE / REALTIME"],
   footerLeft = "HERO SYSTEM — PARTICLE VORTEX",
-  footerRight = "MOVE THE CURSOR · PRESS TO PULSE",
+  footerRight = "CLICK THE FIELD TO CONTINUE ↓",
   density = "medium",
   height = "100svh",
+  advanceToId,
+  onAdvance,
+  advanceDuration = 1100,
+  renderCanvas = true,
+  lightRays = true,
+  lightRaysIntensity = 1,
+  scanOverlay = true,
+  scanOpacity = 0.7,
   style,
 }: HeroVortexProps) {
+  const advance = useAdvanceScroll(advanceToId, advanceDuration);
+  const handleSplash = useCallback(() => {
+    onAdvance?.();
+    advance();
+  }, [onAdvance, advance]);
+
   return (
     <section
       style={{
         position: "relative",
         width: "100%",
         minHeight: height,
-        background: color.ink,
+        background: renderCanvas ? color.ink : "transparent",
         color: color.text,
         overflow: "hidden",
         isolation: "isolate",
         ...style,
       }}
     >
-      {/* Key light: a soft column of haze behind the sculpture, brightest at the
-          funnel mouth, exactly where the reference lifts off black. */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `
-            radial-gradient(54% 44% at 50% 16%, rgba(214,218,230,0.2), transparent 72%),
-            radial-gradient(86% 66% at 52% 32%, rgba(160,168,188,0.07), transparent 78%),
-            linear-gradient(180deg, #0B0C10 0%, ${color.ink} 48%, #000 100%)
-          `,
-        }}
-      />
+      {/* Ground. Flat, and the same ink every other section sits on — the hero
+          used to carry its own graded wash, which made it read as a lighter
+          band above the rest of the page. Standalone it still has to paint the
+          ground itself; inside a VortexScene the scene owns it and this stays
+          out of the way of the shared field behind the section. */}
+      {renderCanvas && (
+        <div aria-hidden style={{ position: "absolute", inset: 0, background: color.ink }} />
+      )}
+
+      {/* Directional light, replacing the old centred key light: it comes from
+          one corner, so the sculpture is lit across rather than haloed. */}
+      {lightRays && <LightRays intensity={lightRaysIntensity} from="top right" />}
+
+      {/* Measurement geometry over the sculpture. Fixed to the viewport like
+          the canvas it annotates, and fades as the hero scrolls away. */}
+      {scanOverlay && (
+        <ScanOverlay
+          opacity={scanOpacity}
+          color={color.textDim}
+          accentColor={color.accentLight}
+        />
+      )}
+
 
       {/* The sculpture. Sized to the section so the vitrine breathes on tall
           viewports and still clears the copy on short ones. */}
+      {renderCanvas && (
       <div style={{ position: "absolute", inset: 0 }}>
         <ParticleVortex
           density={density}
@@ -172,8 +222,11 @@ export default function HeroVortex({
           opacity={0.95}
           parallaxStrength={0.5}
           repelStrength={0.09}
+          splashOnClick
+          onSplash={handleSplash}
         />
       </div>
+      )}
 
       {/* Grain over the render, under the type. */}
       <div
@@ -228,11 +281,13 @@ export default function HeroVortex({
           top: "clamp(18px, 3vh, 34px)",
           right: "clamp(16px, 2.6vw, 34px)",
           textAlign: "right",
-          color: color.textMono,
+          // Lighter than its left-hand counterpart: this block sits inside the
+          // lit wedge, where textMono matches the ground the rays lift it to.
+          color: color.textFaint,
           pointerEvents: "none",
         }}
       >
-        <div style={{ color: color.textFaint, marginBottom: 14 }}>REALTIME / WEBGL</div>
+        <div style={{ color: color.textDim, marginBottom: 14 }}>REALTIME / WEBGL</div>
         <div style={{ display: "grid", gap: 6 }}>
           {channels.map((c) => (
             <div key={c}>{c}</div>

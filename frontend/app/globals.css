@@ -283,3 +283,53 @@ html, body { height: 100%; }
 @media (max-width: 620px) {
   .hv-foot > span:last-child { display: none; }
 }
+
+/* ── LightRays ── */
+/* Only opacity and transform animate, so the fan stays on the compositor.
+   Each beam carries its own resting angle in --ray-angle. */
+@keyframes hv-ray-breathe {
+  0%, 100% {
+    opacity: 0.45;
+    transform: rotate(var(--ray-angle)) scaleX(0.88);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(calc(var(--ray-angle) + 1.8deg)) scaleX(1.22);
+  }
+}
+
+.hv-ray {
+  animation-name: hv-ray-breathe;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  animation-iteration-count: infinite;
+  will-change: opacity, transform;
+}
+
+/* The fan still lights the section, it just stops moving. */
+@media (prefers-reduced-motion: reduce) {
+  .hv-ray { animation: none; opacity: 0.7; }
+}
+
+/* ── ParticleMountain HUD ── */
+/* The annotation is a margin around the range. On a phone there is no margin,
+   so all but the title and the summit callout stand down. */
+/* !important throughout: these blocks are competing with inline styles on the
+   HUD elements, which a plain stylesheet rule cannot outrank. */
+@media (max-width: 820px) {
+  .pm-hud-lat,
+  .pm-hud-lon,
+  .pm-hud-scale { display: none !important; }
+}
+@media (max-width: 560px) {
+  .pm-hud-right,
+  .pm-hud-alt,
+  .pm-hud-grid { display: none !important; }
+  /* Anchored to the right edge, leader dropped: at this width the callout ran
+     off the frame. */
+  .pm-hud-peak {
+    left: auto !important;
+    right: clamp(18px, 5vw, 40px);
+    top: 24%;
+  }
+  .pm-hud-peak svg { display: none !important; }
+}
